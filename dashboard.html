@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Smart Farmer</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+</head>
+<body data-sf-page="app">
+
+<div id="app-shell-root"></div>
+
+<template id="dashboard-template">
+  <div class="reveal">
+    <div class="flex-between" style="flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1 id="dash-greeting" style="font-size:26px;">Good Morning 👋</h1>
+        <div class="text-sm text-muted mt-8"><strong id="dash-farmerid" style="color:var(--forest-700);"></strong> · <i class="bi bi-geo-alt"></i> <span id="dash-location"></span></div>
+      </div>
+      <a href="crops.html" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add New Crop</a>
+    </div>
+
+    <div class="grid-4 mt-32">
+      <div class="card shadow-card">
+        <div class="text-sm text-muted">🌾 My Crops</div>
+        <div style="font-family:var(--font-display);font-size:28px;margin-top:6px;"><span id="stat-crops" data-counter="0">0</span> Crops</div>
+      </div>
+      <div class="card shadow-card">
+        <div class="text-sm text-muted">❄️ Storage Available</div>
+        <div style="font-family:var(--font-display);font-size:28px;margin-top:6px;"><span id="stat-storage" data-counter="0">0</span> Facilities</div>
+      </div>
+      <div class="card shadow-card">
+        <div class="text-sm text-muted">📈 Market Trend</div>
+        <div style="font-family:var(--font-display);font-size:28px;margin-top:6px;color:var(--forest-600);"><span id="stat-trend" data-counter="0" data-suffix="%">0%</span></div>
+      </div>
+      <div class="card shadow-card">
+        <div class="text-sm text-muted">🤝 Buyer Matches</div>
+        <div style="font-family:var(--font-display);font-size:28px;margin-top:6px;"><span id="stat-buyers" data-counter="0">0</span> Buyers</div>
+      </div>
+    </div>
+
+    <!-- Smart Recommendation -->
+    <div class="card shadow-card mt-32" style="background:linear-gradient(135deg,var(--forest-950),var(--forest-700));color:#fff;border:none;">
+      <div class="flex gap-8" style="align-items:center;"><i class="bi bi-robot"></i><strong>Smart Recommendation</strong></div>
+      <div class="flex-between mt-16" style="flex-wrap:wrap;gap:20px;">
+        <div>
+          <div class="flex gap-8" style="align-items:center;"><span id="rec-crop-icon" style="font-size:26px;"></span><span id="rec-crop-name" style="font-family:var(--font-display);font-size:22px;"></span></div>
+          <div class="text-sm mt-16" style="color:var(--paper-200);">Current Price</div>
+          <div style="font-size:19px;font-weight:600;" id="rec-current-price"></div>
+          <div class="text-sm mt-8" style="color:var(--paper-200);">Expected Price</div>
+          <div style="font-size:19px;font-weight:600;color:var(--sun-300);" id="rec-expected-price"></div>
+        </div>
+        <div>
+          <div class="text-sm" style="color:var(--paper-200);">Nearby Storage</div>
+          <div style="font-weight:600;" id="rec-storage-status"></div>
+          <div class="text-sm mt-8" style="color:var(--paper-200);">Recommendation</div>
+          <div style="font-family:var(--font-display);font-size:18px;" id="rec-days"></div>
+          <div class="text-sm mt-8" style="color:var(--paper-200);">Potential additional value</div>
+          <div style="font-family:var(--font-display);font-size:24px;color:var(--sun-300);" id="rec-value"></div>
+        </div>
+      </div>
+      <div class="flex gap-12 mt-24" style="flex-wrap:wrap;">
+        <button id="rec-find-storage" class="btn btn-accent">Find Storage</button>
+        <button id="rec-sell-now" class="btn" style="background:rgba(255,255,255,.15);color:#fff;">Sell Now</button>
+      </div>
+    </div>
+
+    <div class="grid-2 mt-32" style="align-items:start;">
+      <div>
+        <div class="flex-between mb-16"><h2 style="font-size:19px;">My Crops</h2><a href="crops.html" class="text-sm" style="color:var(--forest-700);font-weight:600;">View all →</a></div>
+        <div id="dash-crops-preview" style="display:flex;flex-direction:column;gap:14px;"></div>
+      </div>
+      <div>
+        <div class="flex-between mb-16"><h2 style="font-size:19px;">Recent Notifications</h2><a href="notifications.html" class="text-sm" style="color:var(--forest-700);font-weight:600;">View all →</a></div>
+        <div class="card shadow-card" id="dash-notif-preview"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/voice-assistant.js"></script>
+<script>
+  sfRequireAuth();
+  sfBuildAppShell("dashboard", "Dashboard");
+  document.getElementById("app-main-content").innerHTML = document.getElementById("dashboard-template").innerHTML;
+  sfInitDashboard();
+</script>
+</body>
+</html>

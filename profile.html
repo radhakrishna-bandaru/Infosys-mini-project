@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile — Smart Farmer</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+</head>
+<body data-sf-page="app">
+
+<div id="app-shell-root"></div>
+
+<template id="profile-template">
+  <div class="reveal">
+    <div class="card shadow-card flex gap-16" style="align-items:center;flex-wrap:wrap;">
+      <div id="pf-avatar-initial" style="width:74px;height:74px;border-radius:50%;background:var(--forest-700);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:30px;flex-shrink:0;"></div>
+      <div style="flex:1;min-width:200px;">
+        <h1 id="pf-name" style="font-size:22px;"></h1>
+        <div class="text-sm text-muted mt-8">Farmer ID: <strong id="pf-farmerid" style="color:var(--forest-700);"></strong></div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="sfOpenModal('edit-profile-modal')"><i class="bi bi-pencil"></i> Edit Profile</button>
+    </div>
+
+    <div class="grid-2 mt-24" style="gap:16px;">
+      <div class="card-flat"><div class="text-sm text-muted">Mobile</div><div style="font-weight:600;" id="pf-mobile"></div></div>
+      <div class="card-flat"><div class="text-sm text-muted">Village</div><div style="font-weight:600;" id="pf-village"></div></div>
+      <div class="card-flat"><div class="text-sm text-muted">District</div><div style="font-weight:600;" id="pf-district"></div></div>
+      <div class="card-flat"><div class="text-sm text-muted">State</div><div style="font-weight:600;" id="pf-state"></div></div>
+      <div class="card-flat"><div class="text-sm text-muted">Preferred Language</div><div style="font-weight:600;" id="pf-language"></div></div>
+      <div class="card-flat"><div class="text-sm text-muted">Member Since</div><div style="font-weight:600;" id="pf-member-since"></div></div>
+    </div>
+
+    <h3 style="font-size:17px;margin-top:28px;">Main Crop</h3>
+    <div class="mt-8"><span class="badge badge-green" id="pf-main-crop" style="font-size:14px;padding:8px 16px;"></span></div>
+
+    <h3 style="font-size:17px;margin-top:28px;">Crops</h3>
+    <div class="flex gap-8 mt-8" style="flex-wrap:wrap;" id="pf-crops-list"></div>
+
+    <div class="grid-2 mt-28" style="gap:20px;">
+      <div>
+        <h3 style="font-size:17px;">Saved Storage</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;" id="pf-saved-storage"></div>
+      </div>
+      <div>
+        <h3 style="font-size:17px;">Saved Buyers</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;" id="pf-saved-buyers"></div>
+      </div>
+    </div>
+
+    <h3 style="font-size:17px;margin-top:28px;">Settings</h3>
+    <div class="card mt-8">
+      <div class="flex-between" style="padding:12px 0;border-bottom:1px solid var(--paper-200);">
+        <span>Notifications</span><input type="checkbox" id="notif-toggle">
+      </div>
+      <div class="flex-between" style="padding:12px 0;border-bottom:1px solid var(--paper-200);">
+        <span>Voice Assistant</span><input type="checkbox" id="voice-toggle">
+      </div>
+      <div class="flex-between" style="padding:12px 0;border-bottom:1px solid var(--paper-200);">
+        <span>Location Access</span><input type="checkbox" id="location-toggle">
+      </div>
+      <div class="flex-between" style="padding:12px 0;border-bottom:1px solid var(--paper-200);">
+        <span>Privacy</span><a href="#" class="text-sm" style="color:var(--forest-700);font-weight:600;">View policy</a>
+      </div>
+      <div class="flex-between" style="padding:12px 0;">
+        <span>Logout</span><button class="btn btn-danger btn-sm" onclick="sfLogout()">Logout</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<div class="modal-overlay" id="edit-profile-modal">
+  <div class="modal">
+    <div class="modal-head"><h3 style="font-size:20px;">Edit Profile</h3><button class="modal-close" onclick="sfCloseModal('edit-profile-modal')"><i class="bi bi-x-lg"></i></button></div>
+    <form id="edit-profile-form">
+      <div class="field"><label>Full Name</label><input type="text" id="edit-name"></div>
+      <div class="field"><label>Mobile</label><input type="tel" id="edit-mobile"></div>
+      <div class="field-row">
+        <div class="field"><label>Village</label><input type="text" id="edit-village"></div>
+        <div class="field"><label>District</label><input type="text" id="edit-district"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>State</label><input type="text" id="edit-state"></div>
+        <div class="field"><label>Language</label><select id="edit-language"></select></div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block mt-8">Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/voice-assistant.js"></script>
+<script>
+  sfRequireAuth();
+  sfBuildAppShell("profile", "Profile");
+  document.getElementById("app-main-content").innerHTML = document.getElementById("profile-template").innerHTML;
+  sfInitProfile();
+</script>
+</body>
+</html>

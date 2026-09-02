@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Farmer — Store Smart. Know Your Market. Sell Better.</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+</head>
+<body>
+
+<header class="navbar">
+  <div class="container navbar-inner">
+    <a href="index.html" class="brand"><span class="brand-mark">🌾</span>Smart Farmer</a>
+    <nav class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="index.html#features">Features</a>
+      <a href="index.html#how-it-works">How It Works</a>
+      <a href="market-prices.html">Market Prices</a>
+      <a href="index.html#about">About</a>
+      <a href="login.html">Login</a>
+    </nav>
+    <div class="nav-cta">
+      <a href="login.html" class="btn btn-ghost" style="display:none;" id="desktop-login-link">Login</a>
+      <a href="register.html" class="btn btn-primary">Get Started</a>
+      <button class="hamburger" id="hamburger-btn" aria-label="Open menu"><i class="bi bi-list"></i></button>
+    </div>
+  </div>
+  <div class="container">
+    <div class="mobile-menu" id="mobile-menu">
+      <a href="index.html">Home</a>
+      <a href="index.html#features">Features</a>
+      <a href="index.html#how-it-works">How It Works</a>
+      <a href="market-prices.html">Market Prices</a>
+      <a href="index.html#about">About</a>
+      <a href="login.html">Login</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="section" style="padding-top:64px;padding-bottom:64px;">
+  <div class="container hero-grid" style="display:grid;grid-template-columns:1.1fr 1fr;gap:56px;align-items:center;">
+    <div class="reveal-on-scroll">
+      <div class="eyebrow">🌾 Built for India's farmers</div>
+      <h1 style="font-size:clamp(36px,5vw,58px);line-height:1.06;">Grow more. Store smart. Sell better.</h1>
+      <p class="text-muted mt-16" style="font-size:18px;max-width:480px;">Smart Farmer helps you find suitable cold storage, track market prices, discover better buyers, and make smarter selling decisions — all from your phone.</p>
+      <div class="flex gap-16 mt-32" style="flex-wrap:wrap;">
+        <a href="register.html" class="btn btn-accent">Get Started <i class="bi bi-arrow-right"></i></a>
+        <a href="#features" class="btn btn-outline">Explore Features</a>
+      </div>
+      <div class="flex gap-24 mt-32" style="flex-wrap:wrap;">
+        <div><strong style="font-family:var(--font-display);font-size:22px;">10+</strong><div class="text-sm text-muted">Cold storages</div></div>
+        <div><strong style="font-family:var(--font-display);font-size:22px;">15+</strong><div class="text-sm text-muted">Trusted buyers</div></div>
+        <div><strong style="font-family:var(--font-display);font-size:22px;">12</strong><div class="text-sm text-muted">Indian languages</div></div>
+      </div>
+    </div>
+    <div style="position:relative;min-height:420px;">
+      <div class="card shadow-card" style="position:absolute;top:0;left:10%;width:78%;padding:0;overflow:hidden;border-radius:var(--radius-lg);">
+        <img src="https://images.unsplash.com/photo-1592982537447-7440770cbfc9?q=80&w=900&auto=format&fit=crop" alt="Indian farmer inspecting crops in a green field" loading="lazy" style="height:230px;width:100%;object-fit:cover;">
+      </div>
+      <div class="card shadow-card reveal" style="position:absolute;top:180px;left:0;width:230px;">
+        <div class="flex gap-8" style="align-items:center;"><i class="bi bi-snow" style="color:var(--forest-600);font-size:20px;"></i><strong style="font-size:14px;">Green Valley Storage</strong></div>
+        <div class="text-sm text-muted mt-8">4.2 km · 2,500 tons free</div>
+        <div class="badge badge-green mt-8">₹2.50/kg/day</div>
+      </div>
+      <div class="card shadow-card reveal" style="position:absolute;top:300px;right:0;width:230px;animation-delay:.15s;">
+        <div class="flex-between"><strong style="font-size:14px;">🍅 Tomato</strong><span class="badge badge-gold">+8.4%</span></div>
+        <div style="font-family:var(--font-display);font-size:22px;margin-top:6px;">₹2,850<span class="text-sm text-muted">/quintal</span></div>
+      </div>
+      <div class="card shadow-card reveal" style="position:absolute;bottom:-10px;left:24%;width:210px;animation-delay:.3s;">
+        <div class="flex gap-8" style="align-items:center;"><i class="bi bi-handshake" style="color:var(--sun-600);font-size:20px;"></i><strong style="font-size:14px;">FreshMart Foods</strong></div>
+        <div class="text-sm text-muted mt-8">96% match · ₹3,050/quintal</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features" style="background:var(--white);border-top:1px solid var(--paper-200);border-bottom:1px solid var(--paper-200);">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">What you get</div>
+      <h2 style="font-size:36px;">Everything you need to sell with confidence</h2>
+    </div>
+    <div class="grid-3">
+      <div class="card shadow-card reveal-on-scroll">
+        <div style="font-size:30px;">❄️</div>
+        <h3 style="font-size:19px;margin-top:14px;">Smart Cold Storage</h3>
+        <p class="text-muted text-sm mt-8">Find suitable nearby cold storage facilities matched to your crop and quantity.</p>
+      </div>
+      <div class="card shadow-card reveal-on-scroll">
+        <div style="font-size:30px;">📈</div>
+        <h3 style="font-size:19px;margin-top:14px;">Live Market Prices</h3>
+        <p class="text-muted text-sm mt-8">Track crop prices and trends across mandis so you always know your crop's worth.</p>
+      </div>
+      <div class="card shadow-card reveal-on-scroll">
+        <div style="font-size:30px;">🤝</div>
+        <h3 style="font-size:19px;margin-top:14px;">Best Buyers</h3>
+        <p class="text-muted text-sm mt-8">Discover buyers offering competitive prices, ranked by match quality.</p>
+      </div>
+      <div class="card shadow-card reveal-on-scroll">
+        <div style="font-size:30px;">🗺️</div>
+        <h3 style="font-size:19px;margin-top:14px;">Smart Navigation</h3>
+        <p class="text-muted text-sm mt-8">Find and navigate to nearby storage facilities, markets and buyers on a live map.</p>
+      </div>
+      <div class="card shadow-card reveal-on-scroll">
+        <div style="font-size:30px;">🤖</div>
+        <h3 style="font-size:19px;margin-top:14px;">Smart Recommendations</h3>
+        <p class="text-muted text-sm mt-8">Get personalised advice based on your crop, quantity and current market conditions.</p>
+      </div>
+      <div class="card shadow-card reveal-on-scroll">
+        <div style="font-size:30px;">🎙️</div>
+        <h3 style="font-size:19px;margin-top:14px;">Voice Assistant</h3>
+        <p class="text-muted text-sm mt-8">Talk to Smart Farmer in your own language — Telugu, Hindi, Tamil and more.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how-it-works">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">How it works</div>
+      <h2 style="font-size:36px;">From harvest to sale, in four steps</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative;">
+      <div class="hiw-line" style="position:absolute;top:26px;left:12%;right:12%;height:2px;background:var(--paper-200);z-index:0;"></div>
+      <div class="reveal-on-scroll" style="position:relative;z-index:1;padding:0 12px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--forest-700);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:600;">01</div>
+        <h3 style="font-size:17px;margin-top:16px;">Add Your Crop</h3>
+        <p class="text-sm text-muted mt-8">Log your harvest — crop, quantity and quality — in under a minute.</p>
+      </div>
+      <div class="reveal-on-scroll" style="position:relative;z-index:1;padding:0 12px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--forest-700);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:600;">02</div>
+        <h3 style="font-size:17px;margin-top:16px;">Find Storage</h3>
+        <p class="text-sm text-muted mt-8">Compare nearby cold storage by price, capacity and distance.</p>
+      </div>
+      <div class="reveal-on-scroll" style="position:relative;z-index:1;padding:0 12px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--forest-700);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:600;">03</div>
+        <h3 style="font-size:17px;margin-top:16px;">Check Market</h3>
+        <p class="text-sm text-muted mt-8">See live prices and trends before deciding when to sell.</p>
+      </div>
+      <div class="reveal-on-scroll" style="position:relative;z-index:1;padding:0 12px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--sun-500);color:var(--forest-950);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:600;">04</div>
+        <h3 style="font-size:17px;margin-top:16px;">Sell to the Best Buyer</h3>
+        <p class="text-sm text-muted mt-8">Get matched with buyers offering the best price nearby.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<style>
+@media (max-width:768px){#how-it-works .container > div[style*="grid-template-columns:repeat(4"]{grid-template-columns:1fr 1fr;gap:32px 0;} #how-it-works .hiw-line{display:none;}}
+@media (max-width:920px){
+  .hero-grid{grid-template-columns:1fr !important;}
+  .hero-grid > div:last-child{min-height:340px;order:-1;}
+}
+@media (max-width:520px){
+  .hero-grid > div:last-child .card{width:90% !important;left:5% !important;}
+  .hero-grid > div:last-child .card:nth-child(2){top:150px !important;left:0 !important;width:60% !important;}
+  .hero-grid > div:last-child .card:nth-child(3){top:260px !important;right:0 !important;left:auto !important;width:60% !important;}
+  .hero-grid > div:last-child .card:nth-child(4){bottom:-20px !important;left:20% !important;width:60% !important;}
+}
+</style>
+
+<!-- ABOUT / CTA -->
+<section class="section-tight" id="about" style="background:var(--forest-950);color:var(--paper-50);">
+  <div class="container" style="text-align:center;">
+    <h2 style="color:#fff;font-size:32px;max-width:640px;margin:0 auto;">Built with and for Indian farmers — no jargon, no middlemen guesswork.</h2>
+    <p class="mt-16" style="color:var(--paper-200);max-width:520px;margin:16px auto 0;">Smart Farmer is a frontend prototype demonstrating how a real AgriTech platform could work — from finding storage to comparing buyers.</p>
+    <a href="register.html" class="btn btn-accent mt-24">Create your free account</a>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <div class="brand" style="color:#fff;"><span class="brand-mark">🌾</span>Smart Farmer</div>
+        <p class="mt-16" style="max-width:280px;font-size:14px;">Store Smart. Know Your Market. Sell Better.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="index.html#features">Features</a></li>
+          <li><a href="market-prices.html">Market Prices</a></li>
+          <li><a href="cold-storage.html">Cold Storage</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Account</h4>
+        <ul>
+          <li><a href="login.html">Login</a></li>
+          <li><a href="register.html">Register</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="index.html#about">About</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="#">Privacy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Smart Farmer. Frontend prototype — demo data only.</span>
+      <span>Made for farmers across India 🇮🇳</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/voice-assistant.js"></script>
+</body>
+</html>

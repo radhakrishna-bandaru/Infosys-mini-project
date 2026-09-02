@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sell Smart — Smart Farmer</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+</head>
+<body data-sf-page="app">
+
+<div id="app-shell-root"></div>
+
+<template id="sell-template">
+  <div class="reveal">
+    <h1 style="font-size:26px;">Find the Best Buyer for Your Crop</h1>
+    <p class="text-muted text-sm mt-8">Tell us about your crop and we'll match you with the best-paying, nearest buyers.</p>
+
+    <div class="card shadow-card mt-24">
+      <div class="grid-4">
+        <div class="field" style="margin:0;"><label>Crop</label><select id="sell-crop"></select></div>
+        <div class="field" style="margin:0;"><label>Quantity (KG)</label><input type="number" id="sell-quantity"></div>
+        <div class="field" style="margin:0;"><label>Quality</label><select id="sell-quality"><option>Grade A</option><option>Grade B</option><option>Grade C</option></select></div>
+        <div class="field" style="margin:0;"><label>Location</label><input type="text" id="sell-location"></div>
+      </div>
+    </div>
+
+    <h2 style="font-size:20px;margin-top:32px;">Recommended Buyers</h2>
+    <div class="grid-3 mt-16" id="recommended-buyers"></div>
+
+    <div id="comparison-section" class="mt-32">
+      <h2 style="font-size:20px;">Buyer Comparison</h2>
+      <p class="text-sm text-muted mt-8">Top 3 matches compared side by side. The best offer is highlighted.</p>
+      <div class="table-scroll mt-16" id="buyer-comparison-table"></div>
+    </div>
+  </div>
+</template>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/buyers.js"></script>
+<script src="js/voice-assistant.js"></script>
+<script>
+  sfRequireAuth();
+  sfBuildAppShell("sell", "Sell Smart");
+  document.getElementById("app-main-content").innerHTML = document.getElementById("sell-template").innerHTML;
+  sfInitSellSmart();
+</script>
+</body>
+</html>

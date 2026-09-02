@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crop Details — Smart Farmer</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+</head>
+<body data-sf-page="app">
+
+<div id="app-shell-root"></div>
+
+<template id="cropdetails-template">
+  <div class="reveal">
+    <a href="crops.html" class="text-sm" style="color:var(--forest-700);font-weight:600;"><i class="bi bi-arrow-left"></i> Back to My Crops</a>
+    <div class="flex-between mt-16" style="flex-wrap:wrap;gap:16px;">
+      <div class="flex gap-12" style="align-items:center;">
+        <span id="cd-icon" style="font-size:38px;"></span>
+        <div>
+          <h1 id="cd-name" style="font-size:26px;"></h1>
+          <div class="text-sm text-muted mt-8" id="cd-variety"></div>
+        </div>
+      </div>
+      <span class="badge badge-green" id="cd-quality" style="font-size:13px;"></span>
+    </div>
+
+    <div class="grid-4 mt-24">
+      <div class="card-flat"><div class="text-sm text-muted">Quantity</div><div style="font-weight:700;" id="cd-qty"></div></div>
+      <div class="card-flat"><div class="text-sm text-muted">Harvest Date</div><div style="font-weight:700;" id="cd-harvest"></div></div>
+      <div class="card-flat"><div class="text-sm text-muted">Sell By</div><div style="font-weight:700;" id="cd-sellby"></div></div>
+      <div class="card-flat"><div class="text-sm text-muted">Estimated Value</div><div style="font-weight:700;color:var(--forest-700);" id="cd-value"></div></div>
+    </div>
+
+    <div class="card shadow-card mt-24">
+      <h3 style="font-size:17px;">Price Trend</h3>
+      <div style="height:280px;margin-top:16px;"><canvas id="cd-chart"></canvas></div>
+    </div>
+
+    <div class="flex gap-12 mt-24" style="flex-wrap:wrap;">
+      <a id="cd-storage-link" href="cold-storage.html" class="btn btn-outline">Find Storage</a>
+      <a id="cd-market-link" href="market-prices.html" class="btn btn-outline">Market Price</a>
+      <a id="cd-buyer-link" href="sell-smart.html" class="btn btn-primary">Find Buyer</a>
+    </div>
+  </div>
+</template>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/voice-assistant.js"></script>
+<script>
+  sfRequireAuth();
+  sfBuildAppShell("crops", "Crop Details");
+  document.getElementById("app-main-content").innerHTML = document.getElementById("cropdetails-template").innerHTML;
+
+  const params = new URLSearchParams(window.location.search);
+  const crops = getCropData();
+  const crop = crops.find(c=>c.id===params.get("id")) || crops[0];
+
+  document.getElementById("cd-icon").textContent = CROP_ICONS[crop.name]||"🌱";
+  document.getElementById("cd-name").textContent = crop.name;
+  document.getElementById("cd-variety").textContent = crop.variety;
+  document.getElementById("cd-quality").textContent = crop.quality;
+  document.getElementById("cd-qty").textContent = crop.quantityKg.toLocaleString('en-IN') + " KG";
+  document.getElementById("cd-harvest").textContent = new Date(crop.harvestDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById("cd-sellby").textContent = new Date(crop.sellByDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  const price = cropCurrentPrice(crop.name);
+  document.getElementById("cd-value").textContent = "₹" + Math.round(price*crop.quantityKg/100).toLocaleString('en-IN');
+
+  document.getElementById("cd-storage-link").href = `cold-storage.html?crop=${encodeURIComponent(crop.name)}`;
+  document.getElementById("cd-market-link").href = `market-prices.html?crop=${encodeURIComponent(crop.name)}`;
+  document.getElementById("cd-buyer-link").href = `sell-smart.html?crop=${encodeURIComponent(crop.name)}`;
+
+  const {labels, values} = getPriceHistory(crop.name, "30d");
+  new Chart(document.getElementById("cd-chart").getContext("2d"), {
+    type:"line",
+    data:{labels, datasets:[{label:crop.name, data:values, borderColor:"#1B4332", backgroundColor:"rgba(45,106,79,.12)", fill:true, tension:.35, pointRadius:0, borderWidth:2.5}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>'₹'+v.toLocaleString('en-IN')}, grid:{color:'#EFEADD'}}, x:{grid:{display:false}}}}
+  });
+</script>
+</body>
+</html>

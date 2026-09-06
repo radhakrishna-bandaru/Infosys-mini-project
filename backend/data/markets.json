@@ -1,0 +1,57 @@
+[
+  {
+    "id": "market-1",
+    "name": "Vijayawada Market",
+    "location": "Vijayawada",
+    "crop": "Tomato",
+    "price": 28,
+    "unit": "kg",
+    "trend": "up",
+    "change": 8.5,
+    "updatedAt": "2026-09-04T08:00:00.000Z"
+  },
+  {
+    "id": "market-2",
+    "name": "Guntur Market",
+    "location": "Guntur",
+    "crop": "Tomato",
+    "price": 31,
+    "unit": "kg",
+    "trend": "up",
+    "change": 12.2,
+    "updatedAt": "2026-09-04T08:00:00.000Z"
+  },
+  {
+    "id": "market-3",
+    "name": "Tenali Market",
+    "location": "Tenali",
+    "crop": "Tomato",
+    "price": 26,
+    "unit": "kg",
+    "trend": "down",
+    "change": -3.4,
+    "updatedAt": "2026-09-04T08:00:00.000Z"
+  },
+  {
+    "id": "market-4",
+    "name": "Guntur Market",
+    "location": "Guntur",
+    "crop": "Chilli",
+    "price": 145,
+    "unit": "kg",
+    "trend": "up",
+    "change": 6.8,
+    "updatedAt": "2026-09-04T08:00:00.000Z"
+  },
+  {
+    "id": "market-5",
+    "name": "Vijayawada Market",
+    "location": "Vijayawada",
+    "crop": "Onion",
+    "price": 32,
+    "unit": "kg",
+    "trend": "stable",
+    "change": 0.5,
+    "updatedAt": "2026-09-04T08:00:00.000Z"
+  }
+]

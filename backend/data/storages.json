@@ -1,0 +1,53 @@
+[
+  {
+    "id": "storage-1",
+    "name": "GreenFresh Cold Storage",
+    "owner": "GreenFresh Agro",
+    "location": "Vijayawada",
+    "latitude": 16.5062,
+    "longitude": 80.648,
+    "capacity": 5000,
+    "availableCapacity": 1800,
+    "rentPerKgPerDay": 0.25,
+    "temperature": "2–8°C",
+    "storageType": "Cold Storage",
+    "verified": true,
+    "active": true,
+    "distance": 4.2,
+    "crops": ["Tomato", "Chilli", "Onion"]
+  },
+  {
+    "id": "storage-2",
+    "name": "AgriSafe Storage Hub",
+    "owner": "AgriSafe",
+    "location": "Guntur",
+    "latitude": 16.3067,
+    "longitude": 80.4365,
+    "capacity": 7000,
+    "availableCapacity": 3200,
+    "rentPerKgPerDay": 0.22,
+    "temperature": "1–7°C",
+    "storageType": "Cold Storage",
+    "verified": true,
+    "active": true,
+    "distance": 18.5,
+    "crops": ["Tomato", "Chilli", "Potato"]
+  },
+  {
+    "id": "storage-3",
+    "name": "FreshFarm Chillers",
+    "owner": "FreshFarm",
+    "location": "Mangalagiri",
+    "latitude": 16.4308,
+    "longitude": 80.5688,
+    "capacity": 3500,
+    "availableCapacity": 900,
+    "rentPerKgPerDay": 0.28,
+    "temperature": "2–8°C",
+    "storageType": "Cold Storage",
+    "verified": false,
+    "active": true,
+    "distance": 9.8,
+    "crops": ["Tomato", "Onion"]
+  }
+]

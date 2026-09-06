@@ -1,6 +1,6 @@
 ﻿import { getToken } from "../utils/auth";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "https://smartfarmerr-backend.vercel.app/api";
 
 async function request(endpoint, options = {}) {
   const token = getToken();

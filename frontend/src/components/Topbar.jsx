@@ -45,7 +45,7 @@ export default function Topbar({ onMenuClick }) {
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/notifications",
+        "https://smartfarmerr-backend.vercel.app/api/notifications",
         {
           headers: {
             Authorization: `Bearer ${token}`,

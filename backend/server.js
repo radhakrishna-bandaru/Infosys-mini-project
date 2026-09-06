@@ -20,7 +20,6 @@ const {
 app.use(
   cors({
     origin: "https://smartframerr.vercel.app",
-    credentials: true
   })
 );
 

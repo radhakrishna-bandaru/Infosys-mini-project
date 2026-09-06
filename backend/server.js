@@ -19,7 +19,11 @@ const {
 } = require("./middleware/authMiddleware");
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://smartframerr.vercel.app"
+    ],
+    credentials: true
   })
 );
 

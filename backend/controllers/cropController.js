@@ -3,44 +3,45 @@ const path = require("path");
 
 const cropsFile = path.join(__dirname, "../data/crops.json");
 
-function readCrops() {
-  try {
-  if (!fs.existsSync(cropsFile)) {
-    fs.writeFileSync(cropsFile, "[]","utf8");
-  }
+// Vercel filesystem is read-only.
+// JSON file is used only as initial seed data.
+// New/updated/deleted crops live in runtime memory.
+let runtimeCrops = null;
 
-  const data = fs.readFileSync(cropsFile, "utf8");
+function loadInitialCrops() {
+  try {
+    if (!fs.existsSync(cropsFile)) {
+      return [];
+    }
+
+    const data = fs.readFileSync(cropsFile, "utf8");
     return data ? JSON.parse(data) : [];
-}catch (error) {
+  } catch (error) {
     console.error("Read crops error:", error);
     return [];
   }
 }
-function writeCrops(crops) {
-  fs.writeFileSync(
-    cropsFile,
-    JSON.stringify(crops, null, 2),
-    "utf8"
-  );
+
+function getCropsData() {
+  if (runtimeCrops === null) {
+    runtimeCrops = loadInitialCrops();
+  }
+
+  return runtimeCrops;
 }
 
-function saveCrops(crops) {
-  fs.writeFileSync(
-    cropsFile,
-    JSON.stringify(crops, null, 2)
-  );
-}
+// ==================== GET CROPS ====================
 
 exports.getCrops = (req, res) => {
   try {
-    const crops = readCrops();
+    const crops = getCropsData();
 
     res.json({
       success: true,
       crops,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Get crops error:", error);
 
     res.status(500).json({
       success: false,
@@ -48,6 +49,8 @@ exports.getCrops = (req, res) => {
     });
   }
 };
+
+// ==================== CREATE CROP ====================
 
 exports.createCrop = (req, res) => {
   try {
@@ -63,11 +66,7 @@ exports.createCrop = (req, res) => {
       location,
     } = req.body;
 
-    if (
-      !farmerId ||
-      !cropName ||
-      !quantity
-    ) {
+    if (!farmerId || !cropName || !quantity) {
       return res.status(400).json({
         success: false,
         message:
@@ -75,13 +74,13 @@ exports.createCrop = (req, res) => {
       });
     }
 
-    const crops = readCrops();
+    const crops = getCropsData();
 
     const crop = {
       id: `CROP-${Date.now()}`,
       farmerId,
       farmerName: farmerName || "Farmer",
-      cropName,
+      cropName: String(cropName).trim(),
       variety: variety || "",
       quantity: Number(quantity),
       unit: unit || "kg",
@@ -94,7 +93,9 @@ exports.createCrop = (req, res) => {
 
     crops.unshift(crop);
 
-    writeCrops(crops);
+    // IMPORTANT:
+    // Do NOT write to crops.json on Vercel.
+    runtimeCrops = crops;
 
     res.status(201).json({
       success: true,
@@ -111,11 +112,13 @@ exports.createCrop = (req, res) => {
   }
 };
 
+// ==================== UPDATE CROP ====================
+
 exports.updateCrop = (req, res) => {
   try {
     const { id } = req.params;
 
-    const crops = readCrops();
+    const crops = getCropsData();
 
     const index = crops.findIndex(
       (crop) => crop.id === id
@@ -185,7 +188,7 @@ exports.updateCrop = (req, res) => {
       updatedAt: new Date().toISOString(),
     };
 
-    writeCrops(crops);
+    runtimeCrops = crops;
 
     res.json({
       success: true,
@@ -202,31 +205,38 @@ exports.updateCrop = (req, res) => {
   }
 };
 
+// ==================== DELETE CROP ====================
+
 exports.deleteCrop = (req, res) => {
   try {
     const { id } = req.params;
 
-    const crops = readCrops();
+    const crops = getCropsData();
 
-    const filteredCrops = crops.filter(
-      (crop) => crop.id !== id
+    const index = crops.findIndex(
+      (crop) => crop.id === id
     );
 
-    if (filteredCrops.length === crops.length) {
+    if (index === -1) {
       return res.status(404).json({
         success: false,
         message: "Crop not found",
       });
     }
 
-    saveCrops(filteredCrops);
+    const deletedCrop = crops[index];
+
+    crops.splice(index, 1);
+
+    runtimeCrops = crops;
 
     res.json({
       success: true,
       message: "Crop deleted successfully",
+      crop: deletedCrop,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Delete crop error:", error);
 
     res.status(500).json({
       success: false,

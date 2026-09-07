@@ -51,144 +51,23 @@ async function loadBookings() {
   try {
     setLoading(true);
 
-    const currentUserIds = [
-      user?.id,
-      user?._id,
-      user?.storageId,
-      user?.storage?._id,
-      user?.storage?.id,
-    ]
-      .filter(Boolean)
-      .map(String);
-
-    const currentOwnerNames = [
-      user?.businessName,
-      user?.name,
-      user?.storageName,
-      user?.storage?.name,
-    ]
-      .filter(Boolean)
-      .map((value) =>
-        String(value).trim().toLowerCase()
-      );
-
-    // -----------------------------------------
-    // 1. GET ALL BOOKINGS FROM BACKEND
-    // -----------------------------------------
-
     let apiBookings = [];
 
+    // Backend bookings
     try {
       const response = await getBookings();
 
-      apiBookings = Array.isArray(
-        response?.bookings
-      )
+      apiBookings = Array.isArray(response?.bookings)
         ? response.bookings
         : [];
     } catch (error) {
       console.warn(
-        "API bookings unavailable:",
+        "Backend bookings unavailable:",
         error
       );
     }
 
-    // -----------------------------------------
-    // 2. GET STORAGE DETAILS
-    // -----------------------------------------
-
-    let ownedStorageIds = [];
-    let ownedStorageNames = [];
-
-    try {
-      const response = await getStorages();
-
-      const storages = Array.isArray(
-        response?.storages
-      )
-        ? response.storages
-        : [];
-
-      storages.forEach((storage) => {
-        const ownerIds = [
-          storage.ownerId,
-          storage.userId,
-          storage.storageOwnerId,
-          storage.owner?._id,
-          storage.owner?.id,
-        ]
-          .filter(Boolean)
-          .map(String);
-
-        const names = [
-          storage.name,
-          storage.storageName,
-          storage.businessName,
-          storage.ownerName,
-          storage.owner?.name,
-        ]
-          .filter(Boolean)
-          .map((value) =>
-            String(value)
-              .trim()
-              .toLowerCase()
-          );
-
-        const belongsToOwner =
-          ownerIds.some((id) =>
-            currentUserIds.includes(id)
-          ) ||
-          names.some((name) =>
-            currentOwnerNames.includes(name)
-          );
-
-        if (belongsToOwner) {
-          [
-            storage.id,
-            storage._id,
-            storage.storageId,
-          ]
-            .filter(Boolean)
-            .forEach((id) =>
-              ownedStorageIds.push(String(id))
-            );
-
-          names.forEach((name) =>
-            ownedStorageNames.push(name)
-          );
-        }
-      });
-    } catch (error) {
-      console.warn(
-        "Storage details unavailable:",
-        error
-      );
-    }
-
-    // -----------------------------------------
-    // 3. INCLUDE USER STORAGE ID / NAME
-    // -----------------------------------------
-
-    currentUserIds.forEach((id) =>
-      ownedStorageIds.push(id)
-    );
-
-    currentOwnerNames.forEach((name) =>
-      ownedStorageNames.push(name)
-    );
-
-    ownedStorageIds = [
-      ...new Set(ownedStorageIds),
-    ];
-
-    ownedStorageNames = [
-      ...new Set(ownedStorageNames),
-    ];
-
-    // -----------------------------------------
-    // 4. READ LOCAL BOOKINGS
-    // -----------------------------------------
-
+    // Browser-persistent bookings
     let localBookings = [];
 
     try {
@@ -205,69 +84,20 @@ async function loadBookings() {
       }
     } catch (error) {
       console.error(
-        "Local booking loading error:",
+        "Local bookings error:",
         error
       );
 
       localBookings = [];
     }
 
-    // -----------------------------------------
-    // 5. FILTER BOOKINGS FOR THIS STORAGE
-    // -----------------------------------------
-
-    const matchesStorage = (booking) => {
-      const bookingStorageIds = [
-        booking.storageId,
-        booking.storage?._id,
-        booking.storage?.id,
-        booking.storage?.storageId,
-      ]
-        .filter(Boolean)
-        .map(String);
-
-      const bookingStorageNames = [
-        booking.storageName,
-        booking.storage?.name,
-        booking.storage?.storageName,
-        booking.storage?.businessName,
-      ]
-        .filter(Boolean)
-        .map((value) =>
-          String(value)
-            .trim()
-            .toLowerCase()
-        );
-
-      const idMatch =
-        bookingStorageIds.some((id) =>
-          ownedStorageIds.includes(id)
-        );
-
-      const nameMatch =
-        bookingStorageNames.some((name) =>
-          ownedStorageNames.includes(name)
-        );
-
-      return idMatch || nameMatch;
-    };
-
-    const filteredApiBookings =
-      apiBookings.filter(matchesStorage);
-
-    const filteredLocalBookings =
-      localBookings.filter(matchesStorage);
-
-    // -----------------------------------------
-    // 6. MERGE API + LOCAL
-    // -----------------------------------------
-
+    // Merge backend + local bookings
     const mergedBookings = [
-      ...filteredApiBookings,
+      ...apiBookings,
 
-      ...filteredLocalBookings.filter(
+      ...localBookings.filter(
         (localBooking) =>
-          !filteredApiBookings.some(
+          !apiBookings.some(
             (apiBooking) =>
               String(apiBooking.id) ===
               String(localBooking.id)
@@ -298,11 +128,12 @@ async function changeStatus(id, status) {
   try {
     setUpdatingId(id);
 
+    // Backend update - best effort
     try {
       await updateBookingStatus(id, status);
     } catch (apiError) {
       console.warn(
-        "API status update failed, updating locally:",
+        "Backend status update failed:",
         apiError
       );
     }
@@ -314,19 +145,22 @@ async function changeStatus(id, status) {
           ? {
               ...booking,
               status,
-              updatedAt: new Date().toISOString(),
+              updatedAt:
+                new Date().toISOString(),
             }
           : booking
       )
     );
 
-    // Update localStorage
+    // Update browser storage
     try {
-      const localBookings = JSON.parse(
-        localStorage.getItem(
-          "smartFarmerLocalBookings"
-        ) || "[]"
+      const stored = localStorage.getItem(
+        "smartFarmerLocalBookings"
       );
+
+      const localBookings = stored
+        ? JSON.parse(stored)
+        : [];
 
       const updatedBookings = localBookings.map(
         (booking) =>
@@ -334,7 +168,8 @@ async function changeStatus(id, status) {
             ? {
                 ...booking,
                 status,
-                updatedAt: new Date().toISOString(),
+                updatedAt:
+                  new Date().toISOString(),
               }
             : booking
       );
@@ -345,20 +180,30 @@ async function changeStatus(id, status) {
       );
     } catch (localError) {
       console.error(
-        "Local booking status update error:",
+        "Local status update error:",
         localError
       );
     }
 
-    setSelectedBooking((previous) =>
-      previous &&
-      String(previous.id) === String(id)
-        ? { ...previous, status }
-        : previous
-    );
-
+    // Update selected booking
+    if (
+      selectedBooking &&
+      String(selectedBooking.id) === String(id)
+    ) {
+      setSelectedBooking((previous) =>
+        previous
+          ? {
+              ...previous,
+              status,
+            }
+          : null
+      );
+    }
   } catch (error) {
-    console.error("Booking status error:", error);
+    console.error(
+      "Booking status error:",
+      error
+    );
 
     alert(
       error.message ||

@@ -33,32 +33,164 @@ export default function StorageDashboard() {
 
   const [loading, setLoading] = useState(true);
 
-  async function loadDashboard() {
+async function loadDashboard() {
+  try {
+    setLoading(true);
+
+    // =========================
+    // 1. BACKEND DATA
+    // =========================
+
+    let apiInventory = [];
+    let apiBookings = [];
+
     try {
-      setLoading(true);
+      const inventoryResponse =
+        await getInventory(storageId);
 
-      const [inventoryResponse, bookingResponse] =
-        await Promise.all([
-          getInventory(storageId),
-          getBookings({ storageId }),
-        ]);
-
-      setInventory(inventoryResponse.inventory || []);
-      setBookings(bookingResponse.bookings || []);
+      apiInventory = Array.isArray(
+        inventoryResponse?.inventory
+      )
+        ? inventoryResponse.inventory
+        : [];
     } catch (error) {
-      console.error(
-        "Storage dashboard error:",
+      console.warn(
+        "Inventory API unavailable:",
         error
       );
-
-      alert(
-        error.message ||
-          "Failed to load storage dashboard"
-      );
-    } finally {
-      setLoading(false);
     }
+
+    try {
+      const bookingResponse =
+        await getBookings();
+
+      apiBookings = Array.isArray(
+        bookingResponse?.bookings
+      )
+        ? bookingResponse.bookings
+        : [];
+    } catch (error) {
+      console.warn(
+        "Bookings API unavailable:",
+        error
+      );
+    }
+
+    // =========================
+    // 2. LOCAL INVENTORY
+    // =========================
+
+    let localInventory = [];
+
+    try {
+      const stored = localStorage.getItem(
+        "smartFarmerLocalInventory"
+      );
+
+      localInventory = stored
+        ? JSON.parse(stored)
+        : [];
+
+      if (!Array.isArray(localInventory)) {
+        localInventory = [];
+      }
+    } catch {
+      localInventory = [];
+    }
+
+    const matchingInventory =
+      localInventory.filter((item) => {
+        const itemStorageId = String(
+          item.storageId ||
+            item.storage?._id ||
+            item.storage?.id ||
+            ""
+        );
+
+        const itemStorageName = String(
+          item.storageName ||
+            item.storage?.name ||
+            ""
+        )
+          .trim()
+          .toLowerCase();
+
+        return (
+          itemStorageId === String(storageId) ||
+          itemStorageName ===
+            String(storageName)
+              .trim()
+              .toLowerCase()
+        );
+      });
+
+    // =========================
+    // 3. LOCAL BOOKINGS
+    // =========================
+
+    let localBookings = [];
+
+    try {
+      const stored = localStorage.getItem(
+        "smartFarmerLocalBookings"
+      );
+
+      localBookings = stored
+        ? JSON.parse(stored)
+        : [];
+
+      if (!Array.isArray(localBookings)) {
+        localBookings = [];
+      }
+    } catch {
+      localBookings = [];
+    }
+
+    // =========================
+    // 4. MERGE INVENTORY
+    // =========================
+
+    const mergedInventory = [
+      ...apiInventory,
+
+      ...matchingInventory.filter(
+        (localItem) =>
+          !apiInventory.some(
+            (apiItem) =>
+              String(apiItem.id) ===
+              String(localItem.id)
+          )
+      ),
+    ];
+
+    // =========================
+    // 5. MERGE BOOKINGS
+    // =========================
+
+    const mergedBookings = [
+      ...apiBookings,
+
+      ...localBookings.filter(
+        (localBooking) =>
+          !apiBookings.some(
+            (apiBooking) =>
+              String(apiBooking.id) ===
+              String(localBooking.id)
+          )
+      ),
+    ];
+
+    setInventory(mergedInventory);
+    setBookings(mergedBookings);
+  } catch (error) {
+    console.error(
+      "Storage dashboard error:",
+      error
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     loadDashboard();

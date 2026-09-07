@@ -25,33 +25,25 @@ const app = express();
    CORS
 ========================= */
 
-const cors = require("cors");
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://smartfarmerr.vercel.app",
+];
 
 app.use(
   cors({
-    origin: "https://smartfarmerr.vercel.app",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
-
-app.options("*", (req, res) => {
-  res.setHeader(
-    "Access-Control-Allow-Origin",
-    "https://smartfarmerr.vercel.app"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization"
-  );
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.sendStatus(204);
-});
 /* =========================
    BODY PARSER
 ========================= */

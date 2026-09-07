@@ -6,138 +6,271 @@ const filePath = path.join(
   "../data/inventory.json"
 );
 
-function readInventory() {
+// Vercel filesystem is read-only.
+// JSON file is used only as initial seed data.
+let runtimeInventory = null;
+
+function loadInventory() {
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf-8"));
-  } catch {
+    if (!fs.existsSync(filePath)) {
+      return [];
+    }
+
+    const data = fs.readFileSync(
+      filePath,
+      "utf-8"
+    );
+
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error(
+      "Read inventory error:",
+      error
+    );
+
     return [];
   }
 }
 
-function writeInventory(data) {
-  fs.writeFileSync(
-    filePath,
-    JSON.stringify(data, null, 2)
-  );
+function getInventoryData() {
+  if (runtimeInventory === null) {
+    runtimeInventory = loadInventory();
+  }
+
+  return runtimeInventory;
 }
 
+// ==================== GET INVENTORY ====================
+
 exports.getInventory = (req, res) => {
-  const { storageId } = req.query;
+  try {
+    const { storageId } = req.query;
 
-  let inventory = readInventory();
+    let inventory = [
+      ...getInventoryData(),
+    ];
 
-  if (storageId) {
-    inventory = inventory.filter(
-      (item) => item.storageId === storageId
+    if (storageId) {
+      inventory = inventory.filter(
+        (item) =>
+          String(item.storageId) ===
+          String(storageId)
+      );
+    }
+
+    res.json({
+      success: true,
+      inventory,
+    });
+  } catch (error) {
+    console.error(
+      "Get inventory error:",
+      error
     );
-  }
 
-  res.json({
-    success: true,
-    inventory,
-  });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch inventory",
+    });
+  }
 };
+
+// ==================== CREATE INVENTORY ====================
 
 exports.createInventory = (req, res) => {
-  const {
-    storageId,
-    storageName,
-    cropName,
-    quantity,
-    unit,
-    temperature,
-    entryDate,
-    expectedExitDate,
-  } = req.body;
+  try {
+    const {
+      storageId,
+      storageName,
+      cropName,
+      quantity,
+      unit,
+      temperature,
+      entryDate,
+      expectedExitDate,
+    } = req.body;
 
-  if (!storageId || !cropName || !quantity) {
-    return res.status(400).json({
+    if (
+      !storageId ||
+      !cropName ||
+      !quantity
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Storage, crop name and quantity are required",
+      });
+    }
+
+    const quantityNumber = Number(quantity);
+
+    if (
+      !Number.isFinite(quantityNumber) ||
+      quantityNumber <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Quantity must be greater than 0",
+      });
+    }
+
+    const inventory = getInventoryData();
+
+    const item = {
+      id: `INV-${Date.now()}`,
+
+      storageId,
+
+      storageName:
+        storageName || "",
+
+      cropName,
+
+      quantity: quantityNumber,
+
+      unit: unit || "kg",
+
+      temperature:
+        temperature || "",
+
+      entryDate:
+        entryDate || "",
+
+      expectedExitDate:
+        expectedExitDate || "",
+
+      status: "stored",
+
+      createdAt:
+        new Date().toISOString(),
+    };
+
+    inventory.push(item);
+
+    // Runtime memory only.
+    // No writeFileSync because Vercel filesystem is read-only.
+    runtimeInventory = inventory;
+
+    res.status(201).json({
+      success: true,
+      message:
+        "Inventory added successfully",
+      inventory: item,
+    });
+  } catch (error) {
+    console.error(
+      "Create inventory error:",
+      error
+    );
+
+    res.status(500).json({
       success: false,
-      message: "Storage, crop name and quantity are required",
+      message:
+        "Unable to create inventory",
     });
   }
-
-  const inventory = readInventory();
-
-  const item = {
-    id: `INV-${Date.now()}`,
-    storageId,
-    storageName: storageName || "",
-    cropName,
-    quantity: Number(quantity),
-    unit: unit || "kg",
-    temperature: temperature || "",
-    entryDate: entryDate || "",
-    expectedExitDate: expectedExitDate || "",
-    status: "stored",
-    createdAt: new Date().toISOString(),
-  };
-
-  inventory.push(item);
-  writeInventory(inventory);
-
-  res.status(201).json({
-    success: true,
-    message: "Inventory added successfully",
-    inventory: item,
-  });
 };
+
+// ==================== UPDATE INVENTORY ====================
 
 exports.updateInventory = (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const inventory = readInventory();
+    const inventory = getInventoryData();
 
-  const index = inventory.findIndex(
-    (item) => item.id === id
-  );
+    const index = inventory.findIndex(
+      (item) =>
+        String(item.id) === String(id)
+    );
 
-  if (index === -1) {
-    return res.status(404).json({
+    if (index === -1) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Inventory item not found",
+      });
+    }
+
+    const currentItem = inventory[index];
+
+    inventory[index] = {
+      ...currentItem,
+      ...req.body,
+
+      quantity:
+        req.body.quantity !== undefined
+          ? Number(req.body.quantity)
+          : currentItem.quantity,
+
+      updatedAt:
+        new Date().toISOString(),
+    };
+
+    runtimeInventory = inventory;
+
+    res.json({
+      success: true,
+      message:
+        "Inventory updated successfully",
+      inventory: inventory[index],
+    });
+  } catch (error) {
+    console.error(
+      "Update inventory error:",
+      error
+    );
+
+    res.status(500).json({
       success: false,
-      message: "Inventory item not found",
+      message:
+        "Unable to update inventory",
     });
   }
-
-  inventory[index] = {
-    ...inventory[index],
-    ...req.body,
-    quantity:
-      req.body.quantity !== undefined
-        ? Number(req.body.quantity)
-        : inventory[index].quantity,
-    updatedAt: new Date().toISOString(),
-  };
-
-  writeInventory(inventory);
-
-  res.json({
-    success: true,
-    message: "Inventory updated successfully",
-    inventory: inventory[index],
-  });
 };
 
+// ==================== DELETE INVENTORY ====================
+
 exports.deleteInventory = (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const inventory = readInventory();
+    const inventory = getInventoryData();
 
-  const filtered = inventory.filter(
-    (item) => item.id !== id
-  );
+    const filtered = inventory.filter(
+      (item) =>
+        String(item.id) !== String(id)
+    );
 
-  if (filtered.length === inventory.length) {
-    return res.status(404).json({
+    if (
+      filtered.length ===
+      inventory.length
+    ) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Inventory item not found",
+      });
+    }
+
+    runtimeInventory = filtered;
+
+    res.json({
+      success: true,
+      message:
+        "Inventory deleted successfully",
+    });
+  } catch (error) {
+    console.error(
+      "Delete inventory error:",
+      error
+    );
+
+    res.status(500).json({
       success: false,
-      message: "Inventory item not found",
+      message:
+        "Unable to delete inventory",
     });
   }
-
-  writeInventory(filtered);
-
-  res.json({
-    success: true,
-    message: "Inventory deleted successfully",
-  });
 };

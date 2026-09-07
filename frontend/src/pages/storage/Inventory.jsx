@@ -18,7 +18,7 @@ import {
 } from "../../services/api";
 
 import { getLoggedInUser } from "../../utils/auth";
-
+const LOCAL_INVENTORY_KEY = "smartFarmerLocalInventory";
 export default function Inventory() {
   const user = getLoggedInUser("storage");
 
@@ -55,19 +55,97 @@ export default function Inventory() {
   // ==================== LOAD INVENTORY ====================
 
   async function loadInventory() {
+  try {
+    setLoading(true);
+
+    const currentStorageId = String(storageId);
+    const currentStorageName = String(storageName)
+      .trim()
+      .toLowerCase();
+
+    let apiInventory = [];
+
+    // Backend inventory
     try {
-      setLoading(true);
+      const response = await getInventory(currentStorageId);
 
-      const response = await getInventory(storageId);
-
-      setInventory(response.inventory || []);
+      apiInventory = Array.isArray(response?.inventory)
+        ? response.inventory
+        : [];
     } catch (error) {
-      console.error("Inventory loading error:", error);
-      alert(error.message || "Failed to load inventory");
-    } finally {
-      setLoading(false);
+      console.warn(
+        "API inventory loading failed:",
+        error
+      );
     }
+
+    // Local inventory
+    let localInventory = [];
+
+    try {
+      const stored = localStorage.getItem(
+        LOCAL_INVENTORY_KEY
+      );
+
+      localInventory = stored
+        ? JSON.parse(stored)
+        : [];
+
+      if (!Array.isArray(localInventory)) {
+        localInventory = [];
+      }
+    } catch (error) {
+      console.warn(
+        "Local inventory loading failed:",
+        error
+      );
+    }
+
+    // Match storage by ID OR storage name
+    const matchingLocalInventory =
+      localInventory.filter((item) => {
+        const itemStorageId = String(
+          item.storageId || ""
+        );
+
+        const itemStorageName = String(
+          item.storageName || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        return (
+          itemStorageId === currentStorageId ||
+          itemStorageName === currentStorageName
+        );
+      });
+
+    // API + local merge
+    const mergedInventory = [
+      ...apiInventory,
+
+      ...matchingLocalInventory.filter(
+        (localItem) =>
+          !apiInventory.some(
+            (apiItem) =>
+              String(apiItem.id) ===
+              String(localItem.id)
+          )
+      ),
+    ];
+
+    setInventory(mergedInventory);
+  } catch (error) {
+    console.error(
+      "Inventory loading error:",
+      error
+    );
+
+    setInventory([]);
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     loadInventory();
@@ -139,26 +217,107 @@ export default function Inventory() {
     try {
       setSaving(true);
 
-      const payload = {
-        storageId,
-        storageName,
-        cropName: form.cropName.trim(),
-        quantity: Number(form.quantity),
-        unit: form.unit,
-        temperature: form.temperature,
-        entryDate: form.entryDate,
-        expectedExitDate: form.expectedExitDate,
+    const payload = {
+  storageId,
+  storageName,
+  cropName: form.cropName.trim(),
+  quantity: Number(form.quantity),
+  unit: form.unit,
+  temperature: form.temperature,
+  entryDate: form.entryDate,
+  expectedExitDate: form.expectedExitDate,
+};
+
+let savedItem;
+
+if (editingItem) {
+  try {
+    const response = await updateInventory(
+      editingItem.id,
+      payload
+    );
+
+    savedItem =
+      response?.inventory ||
+      response?.item ||
+      {
+        ...editingItem,
+        ...payload,
       };
+  } catch (apiError) {
+    console.warn(
+      "API update failed, updating locally:",
+      apiError
+    );
 
-      if (editingItem) {
-        await updateInventory(editingItem.id, payload);
-      } else {
-        await createInventory(payload);
-      }
+    savedItem = {
+      ...editingItem,
+      ...payload,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+} else {
+  try {
+    const response = await createInventory(payload);
 
-      await loadInventory();
+    savedItem =
+      response?.inventory ||
+      response?.item ||
+      response?.data ||
+      {
+        ...payload,
+        id: `LOCAL-INV-${Date.now()}`,
+      };
+  } catch (apiError) {
+    console.warn(
+      "API create failed, saving locally:",
+      apiError
+    );
 
-      closeModal();
+    savedItem = {
+      ...payload,
+      id: `LOCAL-INV-${Date.now()}`,
+      status: "stored",
+      createdAt: new Date().toISOString(),
+    };
+  }
+}
+
+// Save permanently in browser
+try {
+  const existingInventory = JSON.parse(
+    localStorage.getItem(
+      LOCAL_INVENTORY_KEY
+    ) || "[]"
+  );
+
+  const updatedInventory = [
+    ...existingInventory.filter(
+      (item) =>
+        String(item.id) !==
+        String(savedItem.id)
+    ),
+    {
+      ...savedItem,
+      storageId,
+      storageName,
+      status: savedItem.status || "stored",
+    },
+  ];
+
+  localStorage.setItem(
+    LOCAL_INVENTORY_KEY,
+    JSON.stringify(updatedInventory)
+  );
+} catch (localError) {
+  console.error(
+    "Local inventory save error:",
+    localError
+  );
+}
+
+await loadInventory();
+closeModal();
     } catch (error) {
       console.error("Inventory save error:", error);
       alert(error.message || "Failed to save inventory");
@@ -169,21 +328,67 @@ export default function Inventory() {
 
   // ==================== DELETE ====================
 
-  async function handleDelete(id) {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this inventory item?"
-    );
+async function handleDelete(id) {
+  const confirmed = window.confirm(
+    "Are you sure you want to delete this inventory item?"
+  );
 
-    if (!confirmed) return;
+  if (!confirmed) return;
 
+  try {
     try {
       await deleteInventory(id);
-      await loadInventory();
-    } catch (error) {
-      console.error("Inventory delete error:", error);
-      alert(error.message || "Failed to delete inventory");
+    } catch (apiError) {
+      console.warn(
+        "API delete failed, deleting locally:",
+        apiError
+      );
     }
+
+    // Remove from UI
+    setInventory((previous) =>
+      previous.filter(
+        (item) =>
+          String(item.id) !== String(id)
+      )
+    );
+
+    // Remove from localStorage
+    try {
+      const existingInventory = JSON.parse(
+        localStorage.getItem(
+          LOCAL_INVENTORY_KEY
+        ) || "[]"
+      );
+
+      const updatedInventory =
+        existingInventory.filter(
+          (item) =>
+            String(item.id) !== String(id)
+        );
+
+      localStorage.setItem(
+        LOCAL_INVENTORY_KEY,
+        JSON.stringify(updatedInventory)
+      );
+    } catch (localError) {
+      console.error(
+        "Local inventory delete error:",
+        localError
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Inventory delete error:",
+      error
+    );
+
+    alert(
+      error.message ||
+        "Failed to delete inventory"
+    );
   }
+}
 
   // ==================== FILTER ====================
 

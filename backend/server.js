@@ -29,7 +29,7 @@ const cors = require("cors");
 
 app.use(
   cors({
-    origin: "https://smartframerr.vercel.app",
+    origin: "https://smartfarmerr.vercel.app",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,

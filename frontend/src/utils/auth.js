@@ -16,14 +16,15 @@ const TOKEN_KEY = "smartFarmerToken";
 export function loginUser(role, user, token) {
   const key = ROLE_KEYS[role];
 
-  if (!key) {
-    return false;
-  }
+  if (!key) return false;
 
   const saved = setStorage(key, user);
 
   if (saved && token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(
+      TOKEN_KEY,
+      token
+    );
   }
 
   return saved;

@@ -1,105 +1,224 @@
 const fs = require("fs");
 const path = require("path");
+
 const filePath = path.join(
   __dirname,
   "../data/users.json"
 );
+
+// JSON file is only used as initial seed.
+// Never write to filesystem on Vercel.
 function readUsers() {
   try {
-    return JSON.parse(
-      fs.readFileSync(filePath, "utf-8")
+    const data = fs.readFileSync(
+      filePath,
+      "utf-8"
     );
-  } catch {
+
+    const parsed = JSON.parse(data);
+
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
+  } catch (error) {
+    console.error(
+      "Users seed loading error:",
+      error
+    );
+
     return [];
   }
 }
-function writeUsers(data) {
-  fs.writeFileSync(
-    filePath,
-    JSON.stringify(data, null, 2)
-  );
-}
+
+// Runtime memory.
+// No fs.writeFileSync().
+let runtimeUsers = readUsers();
+
+
+// ==================== GET USERS ====================
+
 exports.getUsers = (req, res) => {
-  const { role, search } = req.query;
-  let users = readUsers();
-  if (role && role !== "all") {
-    users = users.filter(
-      (user) => user.role === role
+  try {
+    const {
+      role,
+      search,
+    } = req.query;
+
+    let users = [...runtimeUsers];
+
+    if (
+      role &&
+      role !== "all"
+    ) {
+      users = users.filter(
+        (user) =>
+          user.role === role
+      );
+    }
+
+    if (search) {
+      const text =
+        String(search)
+          .toLowerCase()
+          .trim();
+
+      users = users.filter(
+        (user) =>
+          String(
+            user.name || ""
+          )
+            .toLowerCase()
+            .includes(text) ||
+
+          String(
+            user.email || ""
+          )
+            .toLowerCase()
+            .includes(text) ||
+
+          String(
+            user.phone || ""
+          ).includes(search)
+      );
+    }
+
+    // Never expose passwords.
+    const safeUsers =
+      users.map(
+        ({
+          password,
+          ...user
+        }) => user
+      );
+
+    return res.json({
+      success: true,
+      users: safeUsers,
+    });
+  } catch (error) {
+    console.error(
+      "GET users error:",
+      error
     );
-  }
-  if (search) {
-    const text = search.toLowerCase();
-    users = users.filter(
-      (user) =>
-        user.name?.toLowerCase().includes(text) ||
-        user.email?.toLowerCase().includes(text) ||
-        user.phone?.includes(search)
-    );
-  }
-  const safeUsers = users.map(
-    ({ password, ...user }) => user
-  );
-  res.json({
-    success: true,
-    users: safeUsers,
-  });
-};
-exports.updateUserStatus = (req, res) => {
-  const { id } = req.params;
-  const { active } = req.body;
 
-  const users = readUsers();
-
-  const index = users.findIndex(
-    (user) =>
-      String(user.id) === String(id)
-  );
-
-  if (index === -1) {
-    return res.status(404).json({
+    return res.status(500).json({
       success: false,
-      message: "User not found",
+      message:
+        "Failed to load users",
     });
   }
-
-  users[index].active = Boolean(active);
-
-  users[index].updatedAt =
-    new Date().toISOString();
-
-  writeUsers(users);
-
-  const { password, ...safeUser } =
-    users[index];
-
-  res.json({
-    success: true,
-    message: "User status updated",
-    user: safeUser,
-  });
 };
 
-exports.deleteUser = (req, res) => {
-  const { id } = req.params;
 
-  const users = readUsers();
+// ==================== UPDATE USER STATUS ====================
 
-  const filtered = users.filter(
-    (user) =>
-      String(user.id) !== String(id)
-  );
+exports.updateUserStatus = (
+  req,
+  res
+) => {
+  try {
+    const { id } =
+      req.params;
 
-  if (filtered.length === users.length) {
-    return res.status(404).json({
+    const { active } =
+      req.body;
+
+    const index =
+      runtimeUsers.findIndex(
+        (user) =>
+          String(user.id) ===
+          String(id)
+      );
+
+    if (index === -1) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "User not found",
+      });
+    }
+
+    runtimeUsers[index] = {
+      ...runtimeUsers[index],
+
+      active:
+        Boolean(active),
+
+      updatedAt:
+        new Date().toISOString(),
+    };
+
+    const {
+      password,
+      ...safeUser
+    } = runtimeUsers[index];
+
+    return res.json({
+      success: true,
+      message:
+        "User status updated",
+      user: safeUser,
+    });
+  } catch (error) {
+    console.error(
+      "UPDATE user status error:",
+      error
+    );
+
+    return res.status(500).json({
       success: false,
-      message: "User not found",
+      message:
+        "Failed to update user status",
     });
   }
+};
 
-  writeUsers(filtered);
 
-  res.json({
-    success: true,
-    message: "User deleted successfully",
-  });
+// ==================== DELETE USER ====================
+
+exports.deleteUser = (
+  req,
+  res
+) => {
+  try {
+    const { id } =
+      req.params;
+
+    const index =
+      runtimeUsers.findIndex(
+        (user) =>
+          String(user.id) ===
+          String(id)
+      );
+
+    if (index === -1) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "User not found",
+      });
+    }
+
+    runtimeUsers.splice(
+      index,
+      1
+    );
+
+    return res.json({
+      success: true,
+      message:
+        "User deleted successfully",
+    });
+  } catch (error) {
+    console.error(
+      "DELETE user error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to delete user",
+    });
+  }
 };

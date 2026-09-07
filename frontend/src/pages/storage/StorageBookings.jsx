@@ -20,11 +20,19 @@ import { getLoggedInUser } from "../../utils/auth";
 export default function StorageBookings() {
   const user = getLoggedInUser("storage");
 
-  const storageId =
-    user?.id ||
-    user?._id ||
-    user?.storageId ||
-    "storage-1";
+ const storageId =
+  user?.storageId ||
+  user?.storageId?._id ||
+  user?.storageId?.id ||
+  user?.id ||
+  user?._id ||
+  "storage-1";
+
+const storageOwnerName = String(
+  user?.businessName ||
+  user?.name ||
+  ""
+).trim().toLowerCase();
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,85 +52,23 @@ async function loadBookings() {
 
     const currentStorageId = String(storageId);
 
-    const storageNames = [
-      user?.businessName,
-      user?.name,
-      user?.storageName,
-    ]
-      .filter(Boolean)
-      .map((name) => String(name).trim().toLowerCase());
-
-    // =========================
-    // 1. API BOOKINGS
-    // =========================
-
     let apiBookings = [];
 
+    // 1. Get all API bookings
     try {
-      const response = await getBookings({
-        storageId: currentStorageId,
-      });
+      const response = await getBookings();
 
       apiBookings = Array.isArray(response?.bookings)
         ? response.bookings
         : [];
     } catch (error) {
       console.warn(
-        "Filtered API bookings failed:",
+        "API booking loading failed:",
         error
       );
     }
 
-    // If ID-based API search gives nothing,
-    // load all bookings and match by storage details.
-    if (apiBookings.length === 0) {
-      try {
-        const response = await getBookings();
-
-        const allBookings = Array.isArray(
-          response?.bookings
-        )
-          ? response.bookings
-          : [];
-
-        apiBookings = allBookings.filter((booking) => {
-          const bookingStorageId = String(
-            booking.storageId ||
-              booking.storage?._id ||
-              booking.storage?.id ||
-              ""
-          );
-
-          const bookingStorageName = String(
-            booking.storageName ||
-              booking.storage?.name ||
-              ""
-          )
-            .trim()
-            .toLowerCase();
-
-          return (
-            bookingStorageId === currentStorageId ||
-            (
-              bookingStorageName &&
-              storageNames.includes(
-                bookingStorageName
-              )
-            )
-          );
-        });
-      } catch (error) {
-        console.warn(
-          "All API bookings loading failed:",
-          error
-        );
-      }
-    }
-
-    // =========================
-    // 2. LOCAL BOOKINGS
-    // =========================
-
+    // 2. Get local bookings
     let localBookings = [];
 
     try {
@@ -142,16 +88,23 @@ async function loadBookings() {
         "Local booking loading failed:",
         error
       );
-
-      localBookings = [];
     }
 
-    // =========================
-    // 3. MATCH STORAGE
-    // =========================
+    // 3. Match bookings with this storage
+    const allBookings = [
+      ...apiBookings,
+      ...localBookings.filter(
+        (localBooking) =>
+          !apiBookings.some(
+            (apiBooking) =>
+              String(apiBooking.id) ===
+              String(localBooking.id)
+          )
+      ),
+    ];
 
-    const matchingLocalBookings =
-      localBookings.filter((booking) => {
+    const matchedBookings = allBookings.filter(
+      (booking) => {
         const bookingStorageId = String(
           booking.storageId ||
             booking.storage?._id ||
@@ -167,35 +120,20 @@ async function loadBookings() {
           .trim()
           .toLowerCase();
 
-        return (
-          bookingStorageId === currentStorageId ||
-          (
-            bookingStorageName &&
-            storageNames.includes(
-              bookingStorageName
-            )
-          )
-        );
-      });
+        const idMatch =
+          bookingStorageId === currentStorageId;
 
-    // =========================
-    // 4. MERGE
-    // =========================
+        const nameMatch =
+          storageOwnerName &&
+          bookingStorageName === storageOwnerName;
 
-    const mergedBookings = [
-      ...apiBookings,
-      ...matchingLocalBookings.filter(
-        (localBooking) =>
-          !apiBookings.some(
-            (apiBooking) =>
-              String(apiBooking.id) ===
-              String(localBooking.id)
-          )
-      ),
-    ];
+        // Also allow the booking if it belongs
+        // to the currently selected storage ID.
+        return idMatch || nameMatch;
+      }
+    );
 
-    setBookings(mergedBookings);
-
+    setBookings(matchedBookings);
   } catch (error) {
     console.error(
       "Booking loading error:",

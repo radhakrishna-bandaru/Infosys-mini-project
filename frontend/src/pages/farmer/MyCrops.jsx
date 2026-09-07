@@ -14,7 +14,7 @@ import {
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { createCrop, deleteCrop, getCrops, updateCrop } from "../../services/api";
 import { getLoggedInUser } from "../../utils/auth";
-
+const LOCAL_CROPS_KEY = "smartFarmerLocalCrops";
 const emptyForm = {
   cropName: "",
   variety: "",
@@ -67,37 +67,69 @@ export default function MyCrops() {
 
   const user = getLoggedInUser("farmer");
 
-  const loadCrops = async () => {
-    try {
-      setLoading(true);
-      setError("");
+const loadCrops = async () => {
+  try {
+    setLoading(true);
+    setError("");
 
+    const farmerId = user?.id || user?._id;
+
+    let localCrops = [];
+
+    try {
+      localCrops = JSON.parse(
+        localStorage.getItem(LOCAL_CROPS_KEY) || "[]"
+      );
+    } catch {
+      localCrops = [];
+    }
+
+    const farmerLocalCrops = localCrops.filter(
+      (crop) => String(crop.farmerId) === String(farmerId)
+    );
+
+    try {
       const response = await getCrops();
 
-      const farmerId = user?.id;
-
-      const farmerCrops = (response.crops || []).filter(
-        (crop) => crop.farmerId === farmerId
+      const apiCrops = (response.crops || []).filter(
+        (crop) => String(crop.farmerId) === String(farmerId)
       );
+
+      const merged = [
+        ...apiCrops,
+        ...farmerLocalCrops.filter(
+          (local) =>
+            !apiCrops.some(
+              (api) => String(api.id) === String(local.id)
+            )
+        ),
+      ];
 
       setCrops(
-        farmerCrops.length > 0
-          ? farmerCrops
+        merged.length > 0
+          ? merged
           : farmerId
-            ? []
-            : demoCrops
+          ? []
+          : demoCrops
       );
     } catch (err) {
-      console.error(err);
-      setError(
-        err.message ||
-          "Unable to load crops. Please check the backend server."
+      console.error("API crop loading error:", err);
+
+      setCrops(
+        farmerLocalCrops.length > 0
+          ? farmerLocalCrops
+          : farmerId
+          ? []
+          : demoCrops
       );
-      setCrops(demoCrops);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("Crop loading error:", err);
+    setError("Unable to load crops.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     loadCrops();
@@ -213,12 +245,37 @@ export default function MyCrops() {
           )
         );
       } else {
-        const response = await createCrop(payload);
+       let savedCrop;
 
-        setCrops((previous) => [
-          ...previous,
-          response.crop,
-        ]);
+try {
+  const response = await createCrop(payload);
+  savedCrop = response.crop;
+} catch (apiError) {
+  console.warn("API save failed, saving locally:", apiError);
+
+  savedCrop = {
+    ...payload,
+    id: `LOCAL-CROP-${Date.now()}`,
+    status: "active",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+setCrops((previous) => [...previous, savedCrop]);
+
+const existingLocalCrops = JSON.parse(
+  localStorage.getItem(LOCAL_CROPS_KEY) || "[]"
+);
+
+localStorage.setItem(
+  LOCAL_CROPS_KEY,
+  JSON.stringify([
+    ...existingLocalCrops.filter(
+      (crop) => String(crop.id) !== String(savedCrop.id)
+    ),
+    savedCrop,
+  ])
+);
       }
 
       setShowModal(false);
@@ -236,29 +293,41 @@ export default function MyCrops() {
     }
   };
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this crop?"
-    );
+const handleDelete = async (id) => {
+  const confirmed = window.confirm(
+    "Are you sure you want to delete this crop?"
+  );
 
-    if (!confirmed) return;
+  if (!confirmed) return;
 
+  try {
     try {
       await deleteCrop(id);
-
-      setCrops((previous) =>
-        previous.filter((crop) => crop.id !== id)
-      );
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err.message ||
-          "Unable to delete crop."
-      );
+    } catch (apiError) {
+      console.warn("API delete failed, deleting locally:", apiError);
     }
-  };
 
+    setCrops((previous) =>
+      previous.filter((crop) => String(crop.id) !== String(id))
+    );
+
+    const existingLocalCrops = JSON.parse(
+      localStorage.getItem(LOCAL_CROPS_KEY) || "[]"
+    );
+
+    localStorage.setItem(
+      LOCAL_CROPS_KEY,
+      JSON.stringify(
+        existingLocalCrops.filter(
+          (crop) => String(crop.id) !== String(id)
+        )
+      )
+    );
+  } catch (err) {
+    console.error(err);
+    setError("Unable to delete crop.");
+  }
+};
   return (
     <DashboardLayout>
       <div className="my-crops-page space-y-6">

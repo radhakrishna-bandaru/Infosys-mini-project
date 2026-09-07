@@ -39,7 +39,7 @@ app.use(
 app.options("*", (req, res) => {
   res.setHeader(
     "Access-Control-Allow-Origin",
-    "https://smartframerr.vercel.app"
+    "https://smartfarmerr.vercel.app"
   );
   res.setHeader(
     "Access-Control-Allow-Methods",

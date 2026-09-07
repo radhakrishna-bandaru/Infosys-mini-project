@@ -44,9 +44,20 @@ async function loadBookings() {
 
     const currentStorageId = String(storageId);
 
+    const storageNames = [
+      user?.businessName,
+      user?.name,
+      user?.storageName,
+    ]
+      .filter(Boolean)
+      .map((name) => String(name).trim().toLowerCase());
+
+    // =========================
+    // 1. API BOOKINGS
+    // =========================
+
     let apiBookings = [];
 
-    // 1. Load backend bookings
     try {
       const response = await getBookings({
         storageId: currentStorageId,
@@ -56,10 +67,62 @@ async function loadBookings() {
         ? response.bookings
         : [];
     } catch (error) {
-      console.error("API booking loading error:", error);
+      console.warn(
+        "Filtered API bookings failed:",
+        error
+      );
     }
 
-    // 2. Load browser-persistent bookings
+    // If ID-based API search gives nothing,
+    // load all bookings and match by storage details.
+    if (apiBookings.length === 0) {
+      try {
+        const response = await getBookings();
+
+        const allBookings = Array.isArray(
+          response?.bookings
+        )
+          ? response.bookings
+          : [];
+
+        apiBookings = allBookings.filter((booking) => {
+          const bookingStorageId = String(
+            booking.storageId ||
+              booking.storage?._id ||
+              booking.storage?.id ||
+              ""
+          );
+
+          const bookingStorageName = String(
+            booking.storageName ||
+              booking.storage?.name ||
+              ""
+          )
+            .trim()
+            .toLowerCase();
+
+          return (
+            bookingStorageId === currentStorageId ||
+            (
+              bookingStorageName &&
+              storageNames.includes(
+                bookingStorageName
+              )
+            )
+          );
+        });
+      } catch (error) {
+        console.warn(
+          "All API bookings loading failed:",
+          error
+        );
+      }
+    }
+
+    // =========================
+    // 2. LOCAL BOOKINGS
+    // =========================
+
     let localBookings = [];
 
     try {
@@ -67,34 +130,58 @@ async function loadBookings() {
         "smartFarmerLocalBookings"
       );
 
-      localBookings = stored ? JSON.parse(stored) : [];
+      localBookings = stored
+        ? JSON.parse(stored)
+        : [];
 
       if (!Array.isArray(localBookings)) {
         localBookings = [];
       }
     } catch (error) {
-      console.error("Local booking loading error:", error);
+      console.warn(
+        "Local booking loading failed:",
+        error
+      );
+
       localBookings = [];
     }
 
-    // 3. Match storage ID robustly
-    const matchingLocalBookings = localBookings.filter(
-      (booking) => {
+    // =========================
+    // 3. MATCH STORAGE
+    // =========================
+
+    const matchingLocalBookings =
+      localBookings.filter((booking) => {
         const bookingStorageId = String(
           booking.storageId ||
-          booking.storage?._id ||
-          booking.storage?.id ||
-          ""
+            booking.storage?._id ||
+            booking.storage?.id ||
+            ""
         );
+
+        const bookingStorageName = String(
+          booking.storageName ||
+            booking.storage?.name ||
+            ""
+        )
+          .trim()
+          .toLowerCase();
 
         return (
           bookingStorageId === currentStorageId ||
-          bookingStorageId === ""
+          (
+            bookingStorageName &&
+            storageNames.includes(
+              bookingStorageName
+            )
+          )
         );
-      }
-    );
+      });
 
-    // 4. Merge API + local bookings
+    // =========================
+    // 4. MERGE
+    // =========================
+
     const mergedBookings = [
       ...apiBookings,
       ...matchingLocalBookings.filter(
@@ -107,11 +194,14 @@ async function loadBookings() {
       ),
     ];
 
-    // 5. Show bookings
     setBookings(mergedBookings);
 
   } catch (error) {
-    console.error("Booking loading error:", error);
+    console.error(
+      "Booking loading error:",
+      error
+    );
+
     setBookings([]);
   } finally {
     setLoading(false);

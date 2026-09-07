@@ -8,11 +8,17 @@ const router = express.Router();
 
 const usersFile = path.join(__dirname, "../data/users.json");
 
+/*
+  Vercel filesystem is read-only.
+  So users.json is used only as initial/seed data.
+  New users are kept in memory for the running server instance.
+*/
+let runtimeUsers = [];
+
 function readUsers() {
   try {
     if (!fs.existsSync(usersFile)) {
-      fs.mkdirSync(path.dirname(usersFile), { recursive: true });
-      fs.writeFileSync(usersFile, "[]");
+      return [];
     }
 
     const data = fs.readFileSync(usersFile, "utf8");
@@ -23,15 +29,20 @@ function readUsers() {
   }
 }
 
-function writeUsers(users) {
-  fs.writeFileSync(
-    usersFile,
-    JSON.stringify(users, null, 2),
-    "utf8"
-  );
+// Load existing users once when server starts
+runtimeUsers = readUsers();
+
+function getUsers() {
+  return runtimeUsers;
 }
 
 function createToken(user) {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+
   return jwt.sign(
     {
       id: user.id,
@@ -39,7 +50,7 @@ function createToken(user) {
       email: user.email || "",
       phone: user.phone || "",
     },
-    process.env.JWT_SECRET,
+    secret,
     { expiresIn: "7d" }
   );
 }
@@ -96,7 +107,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const users = readUsers();
+    const users = getUsers();
 
     const normalizedEmail = email
       ? email.trim().toLowerCase()
@@ -145,8 +156,12 @@ router.post("/register", async (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    users.push(user);
-    writeUsers(users);
+    /*
+      IMPORTANT:
+      Do NOT write users.json on Vercel.
+      Keep the user in runtime memory instead.
+    */
+    runtimeUsers.push(user);
 
     const token = createToken(user);
 
@@ -173,7 +188,7 @@ router.post("/register", async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Registration failed",
+      message: error.message || "Registration failed",
     });
   }
 });
@@ -205,7 +220,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const users = readUsers();
+    const users = getUsers();
 
     const identifier = email
       ? email.trim().toLowerCase()
@@ -274,7 +289,7 @@ router.post("/login", async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Login failed",
+      message: error.message || "Login failed",
     });
   }
 });

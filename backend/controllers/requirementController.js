@@ -1,38 +1,57 @@
 const fs = require("fs");
 const path = require("path");
 const notificationController = require("./notificationController");
+
 const requirementsFile = path.join(
   __dirname,
   "../data/requirements.json"
 );
 
+// =====================================================
+// JSON FILE IS ONLY SEED DATA
+// VERCEL FILESYSTEM IS READ-ONLY
+// =====================================================
+
 function readRequirements() {
-  if (!fs.existsSync(requirementsFile)) {
-    fs.writeFileSync(requirementsFile, "[]");
+  try {
+    if (!fs.existsSync(requirementsFile)) {
+      return [];
+    }
+
+    const data = fs.readFileSync(
+      requirementsFile,
+      "utf-8"
+    );
+
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error(
+      "Requirements seed read error:",
+      error
+    );
+
+    return [];
   }
-
-  return JSON.parse(
-    fs.readFileSync(requirementsFile, "utf-8")
-  );
 }
 
-function saveRequirements(requirements) {
-  fs.writeFileSync(
-    requirementsFile,
-    JSON.stringify(requirements, null, 2)
-  );
-}
+// Keep data in server memory.
+// DO NOT write to requirements.json on Vercel.
+let runtimeRequirements = readRequirements();
+
+// =====================================================
+// GET REQUIREMENTS
+// =====================================================
 
 exports.getRequirements = (req, res) => {
   try {
-    const requirements = readRequirements();
     const { buyerId } = req.query;
 
-    let result = requirements;
+    let result = runtimeRequirements;
 
     if (buyerId) {
       result = result.filter(
-        (item) => item.buyerId === buyerId
+        (item) =>
+          String(item.buyerId) === String(buyerId)
       );
     }
 
@@ -41,7 +60,10 @@ exports.getRequirements = (req, res) => {
       requirements: result,
     });
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Get requirements error:",
+      error
+    );
 
     res.status(500).json({
       success: false,
@@ -49,6 +71,10 @@ exports.getRequirements = (req, res) => {
     });
   }
 };
+
+// =====================================================
+// CREATE REQUIREMENT
+// =====================================================
 
 exports.createRequirement = (req, res) => {
   try {
@@ -62,8 +88,9 @@ exports.createRequirement = (req, res) => {
       requiredBy,
       quality,
       notes,
-    } = req.body;
+    } = req.body || {};
 
+    // Validation
     if (
       !buyerId ||
       !cropName ||
@@ -76,122 +103,183 @@ exports.createRequirement = (req, res) => {
       });
     }
 
-    const requirements = readRequirements();
-
     const requirement = {
       id: `REQ-${Date.now()}`,
-      buyerId,
-      buyerName: buyerName || "",
-      cropName,
-      quantity: Number(quantity),
-      targetPrice: Number(targetPrice) || 0,
-      location: location || "",
-      requiredBy: requiredBy || "",
-      quality: quality || "Standard",
-      notes: notes || "",
+
+      buyerId: String(buyerId),
+
+      buyerName:
+        buyerName || "",
+
+      cropName:
+        String(cropName).trim(),
+
+      quantity:
+        Number(quantity),
+
+      targetPrice:
+        Number(targetPrice) || 0,
+
+      location:
+        location || "",
+
+      requiredBy:
+        requiredBy || "",
+
+      quality:
+        quality || "Standard",
+
+      notes:
+        notes || "",
+
       status: "active",
-      createdAt: new Date().toISOString(),
+
+      createdAt:
+        new Date().toISOString(),
     };
 
-    requirements.push(requirement);
-    saveRequirements(requirements);
-    notificationController.createNotification(
-  {
-    body: {
-      userId: buyerId,
-      title: "Requirement Posted",
-      message: `Your requirement for ${cropName} has been posted successfully.`,
-      type: "success",
-    },
-  },
-  {
-    status: () => ({ json: () => {} }),
-  }
-);
+    // IMPORTANT:
+    // Store in runtime memory instead of filesystem.
+    runtimeRequirements.push(requirement);
+
+    // Notification should never break requirement creation.
+    try {
+      notificationController.createNotification(
+        {
+          body: {
+            userId: buyerId,
+            title: "Requirement Posted",
+            message: `Your requirement for ${cropName} has been posted successfully.`,
+            type: "success",
+          },
+        },
+        {
+          status: () => ({
+            json: () => {},
+          }),
+        }
+      );
+    } catch (notificationError) {
+      console.warn(
+        "Requirement notification failed:",
+        notificationError
+      );
+    }
+
     res.status(201).json({
       success: true,
-      message: "Requirement created successfully",
+      message:
+        "Requirement created successfully",
       requirement,
     });
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Create requirement error:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Failed to create requirement",
+      message:
+        "Failed to create requirement",
     });
   }
 };
+
+// =====================================================
+// UPDATE REQUIREMENT
+// =====================================================
 
 exports.updateRequirement = (req, res) => {
   try {
     const { id } = req.params;
 
-    const requirements = readRequirements();
-
-    const index = requirements.findIndex(
-      (item) => item.id === id
-    );
+    const index =
+      runtimeRequirements.findIndex(
+        (item) =>
+          String(item.id) === String(id)
+      );
 
     if (index === -1) {
       return res.status(404).json({
         success: false,
-        message: "Requirement not found",
+        message:
+          "Requirement not found",
       });
     }
 
-    requirements[index] = {
-      ...requirements[index],
+    runtimeRequirements[index] = {
+      ...runtimeRequirements[index],
       ...req.body,
-      updatedAt: new Date().toISOString(),
+      id: runtimeRequirements[index].id,
+      updatedAt:
+        new Date().toISOString(),
     };
-
-    saveRequirements(requirements);
 
     res.json({
       success: true,
-      message: "Requirement updated successfully",
-      requirement: requirements[index],
+      message:
+        "Requirement updated successfully",
+      requirement:
+        runtimeRequirements[index],
     });
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Update requirement error:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Failed to update requirement",
+      message:
+        "Failed to update requirement",
     });
   }
 };
+
+// =====================================================
+// DELETE REQUIREMENT
+// =====================================================
 
 exports.deleteRequirement = (req, res) => {
   try {
     const { id } = req.params;
 
-    const requirements = readRequirements();
+    const existing =
+      runtimeRequirements.find(
+        (item) =>
+          String(item.id) === String(id)
+      );
 
-    const filtered = requirements.filter(
-      (item) => item.id !== id
-    );
-
-    if (filtered.length === requirements.length) {
+    if (!existing) {
       return res.status(404).json({
         success: false,
-        message: "Requirement not found",
+        message:
+          "Requirement not found",
       });
     }
 
-    saveRequirements(filtered);
+    runtimeRequirements =
+      runtimeRequirements.filter(
+        (item) =>
+          String(item.id) !== String(id)
+      );
 
     res.json({
       success: true,
-      message: "Requirement deleted successfully",
+      message:
+        "Requirement deleted successfully",
     });
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Delete requirement error:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Failed to delete requirement",
+      message:
+        "Failed to delete requirement",
     });
   }
 };

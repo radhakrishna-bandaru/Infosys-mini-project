@@ -351,10 +351,68 @@ export async function createBooking(bookingData) {
 }
 
 export async function updateBookingStatus(id, status) {
-  return request(`/bookings/${id}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
-  });
+  try {
+    const response = await request(`/bookings/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+
+    // Keep local booking status in sync
+    try {
+      const bookings = getLocalBookings();
+
+      const updatedBookings = bookings.map((booking) =>
+        String(booking.id) === String(id)
+          ? {
+              ...booking,
+              status,
+              updatedAt: new Date().toISOString(),
+            }
+          : booking
+      );
+
+      saveLocalBookings(updatedBookings);
+    } catch (localError) {
+      console.warn(
+        "Local booking status update failed:",
+        localError
+      );
+    }
+
+    return response;
+  } catch (error) {
+    // Even if Vercel API fails, keep cancellation locally
+    const bookings = getLocalBookings();
+
+    const bookingExists = bookings.some(
+      (booking) => String(booking.id) === String(id)
+    );
+
+    if (!bookingExists) {
+      throw error;
+    }
+
+    const updatedBookings = bookings.map((booking) =>
+      String(booking.id) === String(id)
+        ? {
+            ...booking,
+            status,
+            updatedAt: new Date().toISOString(),
+          }
+        : booking
+    );
+
+    saveLocalBookings(updatedBookings);
+
+    return {
+      success: true,
+      message: `Booking ${status} successfully`,
+      booking: updatedBookings.find(
+        (booking) => String(booking.id) === String(id)
+      ),
+      local: true,
+    };
+  }
 }
 
 // ==================== REQUIREMENTS ====================

@@ -45,54 +45,153 @@ export default function FarmerDashboard() {
     user?._id ||
     "";
 
-  async function loadDashboard() {
+async function loadDashboard() {
+  try {
+    setLoading(true);
+    setError("");
+
+    // -------------------------
+    // CROPS
+    // -------------------------
+    let apiCrops = [];
+    let localCrops = [];
+
     try {
-      setLoading(true);
-      setError("");
+      const response = await getCrops();
 
-      const [
-        cropsResponse,
-        marketsResponse,
-        ordersResponse,
-        storageResponse,
-      ] = await Promise.all([
-        getCrops(),
-        getMarkets(),
-        getOrders({ farmerId }),
-        getStorages(),
-      ]);
-
-      const farmerCrops = (
-        cropsResponse?.crops || []
-      ).filter(
-        (crop) =>
-          crop.farmerId === farmerId
+      apiCrops = Array.isArray(response?.crops)
+        ? response.crops
+        : [];
+    } catch (error) {
+      console.warn(
+        "API crops unavailable:",
+        error
       );
-
-      setCrops(farmerCrops);
-      setMarkets(
-        marketsResponse?.markets || []
-      );
-      setOrders(
-        ordersResponse?.orders || []
-      );
-      setStorages(
-        storageResponse?.storages || []
-      );
-    } catch (err) {
-      console.error(
-        "Dashboard loading error:",
-        err
-      );
-
-      setError(
-        err?.message ||
-          "Unable to load dashboard data."
-      );
-    } finally {
-      setLoading(false);
     }
+
+    try {
+      const stored = localStorage.getItem(
+        "smartFarmerLocalCrops"
+      );
+
+      localCrops = stored
+        ? JSON.parse(stored)
+        : [];
+
+      if (!Array.isArray(localCrops)) {
+        localCrops = [];
+      }
+    } catch (error) {
+      console.warn(
+        "Local crops loading failed:",
+        error
+      );
+
+      localCrops = [];
+    }
+
+    const apiFarmerCrops = apiCrops.filter(
+      (crop) =>
+        String(crop.farmerId) ===
+        String(farmerId)
+    );
+
+    const localFarmerCrops =
+      localCrops.filter(
+        (crop) =>
+          String(crop.farmerId) ===
+          String(farmerId)
+      );
+
+    const mergedCrops = [
+      ...apiFarmerCrops,
+      ...localFarmerCrops.filter(
+        (localCrop) =>
+          !apiFarmerCrops.some(
+            (apiCrop) =>
+              String(apiCrop.id) ===
+              String(localCrop.id)
+          )
+      ),
+    ];
+
+    setCrops(mergedCrops);
+
+    // -------------------------
+    // MARKETS
+    // -------------------------
+    try {
+      const response = await getMarkets();
+
+      setMarkets(
+        Array.isArray(response?.markets)
+          ? response.markets
+          : []
+      );
+    } catch (error) {
+      console.warn(
+        "Markets unavailable:",
+        error
+      );
+
+      setMarkets([]);
+    }
+
+    // -------------------------
+    // ORDERS
+    // -------------------------
+    try {
+      const response = await getOrders({
+        farmerId,
+      });
+
+      setOrders(
+        Array.isArray(response?.orders)
+          ? response.orders
+          : []
+      );
+    } catch (error) {
+      console.warn(
+        "Orders unavailable:",
+        error
+      );
+
+      setOrders([]);
+    }
+
+    // -------------------------
+    // STORAGE
+    // -------------------------
+    try {
+      const response = await getStorages();
+
+      setStorages(
+        Array.isArray(response?.storages)
+          ? response.storages
+          : []
+      );
+    } catch (error) {
+      console.warn(
+        "Storage unavailable:",
+        error
+      );
+
+      setStorages([]);
+    }
+  } catch (err) {
+    console.error(
+      "Dashboard loading error:",
+      err
+    );
+
+    setError(
+      err?.message ||
+        "Unable to load dashboard data."
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     loadDashboard();

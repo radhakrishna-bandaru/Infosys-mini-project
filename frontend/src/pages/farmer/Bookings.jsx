@@ -37,27 +37,95 @@ export default function Bookings() {
 
   const farmer = getLoggedInUser("farmer");
 
-  const loadBookings = async () => {
-    try {
-      setLoading(true);
-      setError("");
+const loadBookings = async () => {
+  try {
+    setLoading(true);
+    setError("");
 
+    const farmerId = String(farmer?.id || "");
+
+    // 1. Load API bookings
+    let apiBookings = [];
+
+    try {
       const response = await getBookings({
-        farmerId: farmer?.id,
+        farmerId,
       });
 
-      setBookings(response.bookings || []);
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err.message ||
-          "Unable to load your bookings."
+      apiBookings = Array.isArray(response?.bookings)
+        ? response.bookings
+        : [];
+    } catch (apiError) {
+      console.warn(
+        "API bookings unavailable:",
+        apiError
       );
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // 2. Load locally saved bookings
+    let localBookings = [];
+
+    try {
+      const stored = localStorage.getItem(
+        "smartFarmerLocalBookings"
+      );
+
+      localBookings = stored
+        ? JSON.parse(stored)
+        : [];
+
+      if (!Array.isArray(localBookings)) {
+        localBookings = [];
+      }
+    } catch (localError) {
+      console.warn(
+        "Local bookings loading failed:",
+        localError
+      );
+
+      localBookings = [];
+    }
+
+    // 3. Keep only this farmer's local bookings
+    const farmerLocalBookings =
+      localBookings.filter((booking) => {
+        return (
+          String(
+            booking.farmerId ||
+              booking.userId ||
+              ""
+          ) === farmerId
+        );
+      });
+
+    // 4. Merge API + Local bookings
+    const mergedBookings = [
+      ...apiBookings,
+      ...farmerLocalBookings.filter(
+        (localBooking) =>
+          !apiBookings.some(
+            (apiBooking) =>
+              String(apiBooking.id) ===
+              String(localBooking.id)
+          )
+      ),
+    ];
+
+    setBookings(mergedBookings);
+  } catch (err) {
+    console.error(
+      "Booking loading error:",
+      err
+    );
+
+    setError(
+      err.message ||
+        "Unable to load your bookings."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     loadBookings();
@@ -120,7 +188,7 @@ export default function Bookings() {
 
       setBookings((previous) =>
         previous.map((booking) =>
-          booking.id === id
+          String(booking.id) === String(id)
             ? response.booking
             : booking
         )

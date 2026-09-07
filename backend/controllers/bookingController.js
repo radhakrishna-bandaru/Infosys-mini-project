@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const notificationController = require("./notificationController");
+
 const bookingPath = path.join(
   __dirname,
   "../data/bookings.json"
@@ -11,279 +12,179 @@ const storagePath = path.join(
   "../data/storages.json"
 );
 
-function readBookings() {
+// Vercel filesystem is read-only.
+// JSON files are used only as initial seed data.
+let runtimeBookings = null;
+let runtimeStorages = null;
+
+function loadBookings() {
   try {
-    return JSON.parse(
-      fs.readFileSync(bookingPath, "utf-8")
+    if (!fs.existsSync(bookingPath)) return [];
+
+    const data = fs.readFileSync(
+      bookingPath,
+      "utf-8"
     );
-  } catch {
+
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error("Read bookings error:", error);
     return [];
   }
 }
 
-function writeBookings(data) {
-  fs.writeFileSync(
-    bookingPath,
-    JSON.stringify(data, null, 2)
-  );
-}
-
-function readStorages() {
+function loadStorages() {
   try {
-    return JSON.parse(
-      fs.readFileSync(storagePath, "utf-8")
+    if (!fs.existsSync(storagePath)) return [];
+
+    const data = fs.readFileSync(
+      storagePath,
+      "utf-8"
     );
-  } catch {
+
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error("Read storages error:", error);
     return [];
   }
 }
 
-function writeStorages(data) {
-  fs.writeFileSync(
-    storagePath,
-    JSON.stringify(data, null, 2)
-  );
+function getBookingsData() {
+  if (runtimeBookings === null) {
+    runtimeBookings = loadBookings();
+  }
+
+  return runtimeBookings;
 }
 
-// GET BOOKINGS
+function getStoragesData() {
+  if (runtimeStorages === null) {
+    runtimeStorages = loadStorages();
+  }
+
+  return runtimeStorages;
+}
+
+// ==================== GET BOOKINGS ====================
+
 exports.getBookings = (req, res) => {
-  const {
-    farmerId,
-    storageId,
-    status,
-  } = req.query;
+  try {
+    const {
+      farmerId,
+      storageId,
+      status,
+    } = req.query;
 
-  let bookings = readBookings();
+    let bookings = [...getBookingsData()];
 
-  if (farmerId) {
-    bookings = bookings.filter(
-      (booking) =>
-        String(booking.farmerId) === String(farmerId)
-    );
+    if (farmerId) {
+      bookings = bookings.filter(
+        (booking) =>
+          String(booking.farmerId) ===
+          String(farmerId)
+      );
+    }
+
+    if (storageId) {
+      bookings = bookings.filter(
+        (booking) =>
+          String(booking.storageId) ===
+          String(storageId)
+      );
+    }
+
+    if (status && status !== "all") {
+      bookings = bookings.filter(
+        (booking) =>
+          booking.status === status
+      );
+    }
+
+    res.json({
+      success: true,
+      bookings,
+    });
+  } catch (error) {
+    console.error("Get bookings error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch bookings",
+    });
   }
-
-  if (storageId) {
-    bookings = bookings.filter(
-      (booking) =>
-        String(booking.storageId) === String(storageId)
-    );
-  }
-
-  if (status && status !== "all") {
-    bookings = bookings.filter(
-      (booking) =>
-        booking.status === status
-    );
-  }
-
-  res.json({
-    success: true,
-    bookings,
-  });
 };
 
-// CREATE BOOKING
+// ==================== CREATE BOOKING ====================
+
 exports.createBooking = (req, res) => {
-  const {
-    farmerId,
-    farmerName,
-    storageId,
-    storageName,
-    cropName,
-    quantity,
-    unit,
-    storageDays,
-    startDate,
-    endDate,
-    estimatedCost,
-    notes,
-  } = req.body;
+  try {
+    const {
+      farmerId,
+      farmerName,
+      storageId,
+      storageName,
+      cropName,
+      quantity,
+      unit,
+      storageDays,
+      startDate,
+      endDate,
+      estimatedCost,
+      notes,
+    } = req.body;
 
-  if (
-    !farmerId ||
-    !storageId ||
-    !cropName ||
-    !quantity
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Farmer, storage, crop and quantity are required",
-    });
-  }
+    if (
+      !farmerId ||
+      !storageId ||
+      !cropName ||
+      !quantity
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Farmer, storage, crop and quantity are required",
+      });
+    }
 
-  const quantityNumber = Number(quantity);
+    const quantityNumber = Number(quantity);
 
-  if (
-    !Number.isFinite(quantityNumber) ||
-    quantityNumber <= 0
-  ) {
-    return res.status(400).json({
-      success: false,
-      message: "Quantity must be greater than 0",
-    });
-  }
+    if (
+      !Number.isFinite(quantityNumber) ||
+      quantityNumber <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Quantity must be greater than 0",
+      });
+    }
 
-  const storages = readStorages();
+    const storages = getStoragesData();
 
-  const storage = storages.find(
-    (item) =>
-      String(item.id) === String(storageId)
-  );
-
-  if (!storage) {
-    return res.status(404).json({
-      success: false,
-      message: "Storage not found",
-    });
-  }
-
-  if (!storage.active) {
-    return res.status(400).json({
-      success: false,
-      message: "This storage is currently inactive",
-    });
-  }
-
-  if (
-    Number(storage.availableCapacity || 0) <
-    quantityNumber
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Not enough storage capacity available",
-    });
-  }
-
-  const bookings = readBookings();
-
-  const booking = {
-    id: `BOOK-${Date.now()}`,
-
-    farmerId,
-    farmerName: farmerName || "Farmer",
-
-    storageId,
-    storageName:
-      storageName || storage.name || "",
-
-    cropName,
-
-    quantity: quantityNumber,
-    unit: unit || "kg",
-
-    storageDays:
-      Number(storageDays) || 1,
-
-    startDate: startDate || "",
-    endDate: endDate || "",
-
-    estimatedCost:
-      Number(estimatedCost) || 0,
-
-    notes: notes || "",
-
-    status: "pending",
-
-    createdAt:
-      new Date().toISOString(),
-  };
-
-  bookings.push(booking);
-
-  writeBookings(bookings);
-  notificationController.createNotification(
-  {
-    body: {
-      userId: farmerId,
-      title: "Storage Booking Sent",
-      message: `Your ${cropName} booking request for ${quantityNumber} kg has been sent successfully.`,
-      type: "info",
-    },
-  },
-  {
-    status: () => ({
-      json: () => {},
-    }),
-  }
-);
-
-  res.status(201).json({
-    success: true,
-    message:
-      "Storage booking request created successfully",
-    booking,
-  });
-};
-
-// UPDATE BOOKING STATUS
-exports.updateBookingStatus = (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
-
-  const allowedStatuses = [
-    "pending",
-    "confirmed",
-    "declined",
-    "cancelled",
-    "completed",
-  ];
-
-  if (!allowedStatuses.includes(status)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid booking status",
-    });
-  }
-
-  const bookings = readBookings();
-
-  const index = bookings.findIndex(
-    (booking) =>
-      String(booking.id) === String(id)
-  );
-
-  if (index === -1) {
-    return res.status(404).json({
-      success: false,
-      message: "Booking not found",
-    });
-  }
-
-  const booking = bookings[index];
-
-  // CONFIRM BOOKING
-  if (
-    status === "confirmed" &&
-    booking.status !== "confirmed"
-  ) {
-    const storages = readStorages();
-
-    const storageIndex = storages.findIndex(
-      (storage) =>
-        String(storage.id) ===
-        String(booking.storageId)
+    const storage = storages.find(
+      (item) =>
+        String(item.id) ===
+        String(storageId)
     );
 
-    if (storageIndex === -1) {
+    if (!storage) {
       return res.status(404).json({
         success: false,
         message: "Storage not found",
       });
     }
 
-    const availableCapacity = Number(
-      storages[storageIndex].availableCapacity || 0
-    );
-
-    const bookingQuantity = Number(
-      booking.quantity || 0
-    );
+    if (!storage.active) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This storage is currently inactive",
+      });
+    }
 
     if (
-      availableCapacity <
-      bookingQuantity
+      Number(storage.availableCapacity || 0) <
+      quantityNumber
     ) {
       return res.status(400).json({
         success: false,
@@ -292,107 +193,292 @@ exports.updateBookingStatus = (req, res) => {
       });
     }
 
-    // Reduce available capacity
-    storages[storageIndex].availableCapacity =
-      availableCapacity -
-      bookingQuantity;
+    const bookings = getBookingsData();
 
-    storages[storageIndex].updatedAt =
-      new Date().toISOString();
+    const booking = {
+      id: `BOOK-${Date.now()}`,
 
-    writeStorages(storages);
-  }
+      farmerId,
+      farmerName: farmerName || "Farmer",
 
-  // CANCEL / DECLINE AFTER CONFIRMATION
-  // Return capacity back to storage
-  if (
-    (status === "cancelled" ||
-      status === "declined") &&
-    booking.status === "confirmed"
-  ) {
-    const storages = readStorages();
+      storageId,
+      storageName:
+        storageName || storage.name || "",
 
-    const storageIndex = storages.findIndex(
-      (storage) =>
-        String(storage.id) ===
-        String(booking.storageId)
+      cropName,
+
+      quantity: quantityNumber,
+      unit: unit || "kg",
+
+      storageDays:
+        Number(storageDays) || 1,
+
+      startDate: startDate || "",
+      endDate: endDate || "",
+
+      estimatedCost:
+        Number(estimatedCost) || 0,
+
+      notes: notes || "",
+
+      status: "pending",
+
+      createdAt:
+        new Date().toISOString(),
+    };
+
+    bookings.push(booking);
+
+    // Store in runtime memory instead of JSON file.
+    runtimeBookings = bookings;
+
+    // Notification
+    try {
+      notificationController.createNotification(
+        {
+          body: {
+            userId: farmerId,
+            title: "Storage Booking Sent",
+            message: `Your ${cropName} booking request for ${quantityNumber} kg has been sent successfully.`,
+            type: "info",
+          },
+        },
+        {
+          status: () => ({
+            json: () => {},
+          }),
+        }
+      );
+    } catch (notificationError) {
+      console.error(
+        "Booking notification error:",
+        notificationError
+      );
+    }
+
+    res.status(201).json({
+      success: true,
+      message:
+        "Storage booking request created successfully",
+      booking,
+    });
+  } catch (error) {
+    console.error(
+      "Create booking error:",
+      error
     );
 
-    if (storageIndex !== -1) {
-      const currentCapacity = Number(
-        storages[storageIndex].availableCapacity || 0
+    res.status(500).json({
+      success: false,
+      message: "Unable to create storage booking",
+    });
+  }
+};
+
+// ==================== UPDATE BOOKING STATUS ====================
+
+exports.updateBookingStatus = (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = [
+      "pending",
+      "confirmed",
+      "declined",
+      "cancelled",
+      "completed",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking status",
+      });
+    }
+
+    const bookings = getBookingsData();
+
+    const index = bookings.findIndex(
+      (booking) =>
+        String(booking.id) === String(id)
+    );
+
+    if (index === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    const booking = bookings[index];
+
+    // ==================== CONFIRM ====================
+
+    if (
+      status === "confirmed" &&
+      booking.status !== "confirmed"
+    ) {
+      const storages = getStoragesData();
+
+      const storageIndex = storages.findIndex(
+        (storage) =>
+          String(storage.id) ===
+          String(booking.storageId)
       );
 
-      const totalCapacity = Number(
-        storages[storageIndex].capacity || 0
+      if (storageIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: "Storage not found",
+        });
+      }
+
+      const availableCapacity = Number(
+        storages[storageIndex]
+          .availableCapacity || 0
       );
 
-      const restoredCapacity = Math.min(
-        totalCapacity,
-        currentCapacity +
-          Number(booking.quantity || 0)
+      const bookingQuantity = Number(
+        booking.quantity || 0
       );
 
-      storages[storageIndex].availableCapacity =
-        restoredCapacity;
+      if (
+        availableCapacity <
+        bookingQuantity
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Not enough storage capacity available",
+        });
+      }
+
+      storages[storageIndex]
+        .availableCapacity =
+        availableCapacity -
+        bookingQuantity;
 
       storages[storageIndex].updatedAt =
         new Date().toISOString();
 
-      writeStorages(storages);
+      // Runtime only — no filesystem write.
+      runtimeStorages = storages;
     }
+
+    // ==================== CANCEL / DECLINE ====================
+
+    if (
+      (status === "cancelled" ||
+        status === "declined") &&
+      booking.status === "confirmed"
+    ) {
+      const storages = getStoragesData();
+
+      const storageIndex = storages.findIndex(
+        (storage) =>
+          String(storage.id) ===
+          String(booking.storageId)
+      );
+
+      if (storageIndex !== -1) {
+        const currentCapacity = Number(
+          storages[storageIndex]
+            .availableCapacity || 0
+        );
+
+        const totalCapacity = Number(
+          storages[storageIndex].capacity || 0
+        );
+
+        const restoredCapacity = Math.min(
+          totalCapacity,
+          currentCapacity +
+            Number(booking.quantity || 0)
+        );
+
+        storages[storageIndex]
+          .availableCapacity =
+          restoredCapacity;
+
+        storages[storageIndex].updatedAt =
+          new Date().toISOString();
+
+        runtimeStorages = storages;
+      }
+    }
+
+    bookings[index] = {
+      ...booking,
+      status,
+      updatedAt:
+        new Date().toISOString(),
+    };
+
+    // Runtime only — no filesystem write.
+    runtimeBookings = bookings;
+
+    // ==================== NOTIFICATIONS ====================
+
+    try {
+      if (status === "confirmed") {
+        notificationController.createNotification(
+          {
+            body: {
+              userId: booking.farmerId,
+              title: "Storage Booking Confirmed",
+              message: `Your ${booking.cropName} booking at ${booking.storageName} has been confirmed.`,
+              type: "success",
+            },
+          },
+          {
+            status: () => ({
+              json: () => {},
+            }),
+          }
+        );
+      }
+
+      if (status === "declined") {
+        notificationController.createNotification(
+          {
+            body: {
+              userId: booking.farmerId,
+              title: "Storage Booking Declined",
+              message: `Your ${booking.cropName} booking at ${booking.storageName} was declined.`,
+              type: "warning",
+            },
+          },
+          {
+            status: () => ({
+              json: () => {},
+            }),
+          }
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Status notification error:",
+        notificationError
+      );
+    }
+
+    res.json({
+      success: true,
+      message:
+        "Booking status updated successfully",
+      booking: bookings[index],
+    });
+  } catch (error) {
+    console.error(
+      "Update booking error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Unable to update booking status",
+    });
   }
-
-  bookings[index] = {
-    ...booking,
-
-    status,
-
-    updatedAt:
-      new Date().toISOString(),
-  };
-
-  writeBookings(bookings);
-  if (status === "confirmed") {
-  notificationController.createNotification(
-    {
-      body: {
-        userId: booking.farmerId,
-        title: "Storage Booking Confirmed",
-        message: `Your ${booking.cropName} booking at ${booking.storageName} has been confirmed.`,
-        type: "success",
-      },
-    },
-    {
-      status: () => ({
-        json: () => {},
-      }),
-    }
-  );
-}
-
-if (status === "declined") {
-  notificationController.createNotification(
-    {
-      body: {
-        userId: booking.farmerId,
-        title: "Storage Booking Declined",
-        message: `Your ${booking.cropName} booking at ${booking.storageName} was declined.`,
-        type: "warning",
-      },
-    },
-    {
-      status: () => ({
-        json: () => {},
-      }),
-    }
-  );
-}
-
-  res.json({
-    success: true,
-    message:
-      "Booking status updated successfully",
-    booking: bookings[index],
-  });
 };

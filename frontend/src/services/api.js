@@ -71,52 +71,35 @@ async function request(endpoint, options = {}) {
 // ==================== AUTH ====================
 
 export async function loginUser(userData) {
-  try {
-    // First try backend
-    return await request("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(userData),
-    });
-  } catch (error) {
-    // If Vercel cannot find the runtime user,
-    // check the locally registered account.
-    if (
-      error.message !==
-      "Invalid email/phone, password or role"
-    ) {
-      throw error;
-    }
+  const accounts = getLocalAccounts();
 
-    const accounts = getLocalAccounts();
+  const email = userData.email
+    ? userData.email.trim().toLowerCase()
+    : "";
 
-    const email = userData.email
-      ? userData.email.trim().toLowerCase()
-      : "";
+  const phone = userData.phone
+    ? userData.phone.trim()
+    : "";
 
-    const phone = userData.phone
-      ? userData.phone.trim()
-      : "";
+  // First check locally registered account.
+  // This avoids unnecessary Vercel 401 errors.
+  const localUser = accounts.find((account) => {
+    const emailMatch =
+      email &&
+      account.loginEmail === email;
 
-    const localUser = accounts.find((account) => {
-      const emailMatch =
-        email &&
-        account.loginEmail === email;
+    const phoneMatch =
+      phone &&
+      account.loginPhone === phone;
 
-      const phoneMatch =
-        phone &&
-        account.loginPhone === phone;
+    return (
+      (emailMatch || phoneMatch) &&
+      account.role === userData.role &&
+      account.password === userData.password
+    );
+  });
 
-      return (
-        (emailMatch || phoneMatch) &&
-        account.role === userData.role &&
-        account.password === userData.password
-      );
-    });
-
-    if (!localUser) {
-      throw error;
-    }
-
+  if (localUser) {
     return {
       success: true,
       message: "Login successful",
@@ -129,11 +112,18 @@ export async function loginUser(userData) {
         role: localUser.role,
         location: localUser.location || "",
         farmName: localUser.farmName || "",
-        businessName: localUser.businessName || "",
+        businessName:
+          localUser.businessName || "",
         createdAt: localUser.createdAt,
       },
     };
   }
+
+  // If no local account exists, try backend.
+  return await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  });
 }
 
 export async function registerUser(userData) {
@@ -291,11 +281,73 @@ export async function getBookings(filters = {}) {
   );
 }
 
+const LOCAL_BOOKINGS_KEY = "smartFarmerLocalBookings";
+
+function getLocalBookings() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(LOCAL_BOOKINGS_KEY) || "[]"
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalBookings(bookings) {
+  localStorage.setItem(
+    LOCAL_BOOKINGS_KEY,
+    JSON.stringify(bookings)
+  );
+}
+
 export async function createBooking(bookingData) {
-  return request("/bookings", {
-    method: "POST",
-    body: JSON.stringify(bookingData),
-  });
+  try {
+    const response = await request("/bookings", {
+      method: "POST",
+      body: JSON.stringify(bookingData),
+    });
+
+    if (response.success && response.booking) {
+      const bookings = getLocalBookings();
+
+      const exists = bookings.some(
+        (item) => item.id === response.booking.id
+      );
+
+      if (!exists) {
+        bookings.push(response.booking);
+        saveLocalBookings(bookings);
+      }
+    }
+
+    return response;
+  } catch (error) {
+    // Vercel/API unavailable → local demo booking
+    const booking = {
+      id: `BOOK-${Date.now()}`,
+      ...bookingData,
+      quantity: Number(bookingData.quantity || 0),
+      storageDays:
+        Number(
+          bookingData.storageDays ||
+          bookingData.duration ||
+          1
+        ),
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+
+    const bookings = getLocalBookings();
+    bookings.push(booking);
+    saveLocalBookings(bookings);
+
+    return {
+      success: true,
+      message: "Storage booking request created successfully",
+      booking,
+      local: true,
+    };
+  }
 }
 
 export async function updateBookingStatus(id, status) {

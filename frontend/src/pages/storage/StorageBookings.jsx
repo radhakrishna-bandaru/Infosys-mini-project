@@ -38,29 +38,61 @@ export default function StorageBookings() {
   const [updatingId, setUpdatingId] =
     useState(null);
 
-  async function loadBookings() {
-    try {
-      setLoading(true);
+async function loadBookings() {
+  try {
+    setLoading(true);
 
+    let apiBookings = [];
+
+    try {
       const response = await getBookings({
         storageId,
       });
 
-      setBookings(response.bookings || []);
+      apiBookings = response.bookings || [];
     } catch (error) {
       console.error(
-        "Booking loading error:",
+        "API booking loading error:",
         error
       );
-
-      alert(
-        error.message ||
-          "Failed to load booking requests"
-      );
-    } finally {
-      setLoading(false);
     }
+
+    let localBookings = [];
+
+    try {
+      localBookings = JSON.parse(
+        localStorage.getItem(
+          "smartFarmerLocalBookings"
+        ) || "[]"
+      );
+    } catch {
+      localBookings = [];
+    }
+
+    const merged = [
+      ...apiBookings,
+      ...localBookings.filter(
+        (local) =>
+          String(local.storageId) ===
+            String(storageId) &&
+          !apiBookings.some(
+            (api) =>
+              String(api.id) ===
+              String(local.id)
+          )
+      ),
+    ];
+
+    setBookings(merged);
+  } catch (error) {
+    console.error(
+      "Booking loading error:",
+      error
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     loadBookings();

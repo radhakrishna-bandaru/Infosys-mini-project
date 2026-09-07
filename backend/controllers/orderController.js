@@ -1,28 +1,81 @@
 const fs = require("fs");
 const path = require("path");
 const notificationController = require("./notificationController");
+
 const filePath = path.join(
   __dirname,
   "../data/orders.json"
 );
 
+// =====================================================
+// LOAD JSON DATA AS SEED ONLY
+// Vercel filesystem is read-only, so DO NOT write here.
+// =====================================================
+
+let runtimeOrders = null;
+
 function readOrders() {
+  if (runtimeOrders !== null) {
+    return runtimeOrders;
+  }
+
   try {
     const data = fs.readFileSync(filePath, "utf-8");
-    return JSON.parse(data || "[]");
-  } catch {
-    return [];
+
+    const parsed = JSON.parse(data || "[]");
+
+    runtimeOrders = Array.isArray(parsed)
+      ? parsed
+      : [];
+  } catch (error) {
+    console.error("Read orders error:", error);
+    runtimeOrders = [];
+  }
+
+  return runtimeOrders;
+}
+
+// =====================================================
+// NOTIFICATION HELPER
+// Notification failure should NEVER break an order.
+// =====================================================
+
+function sendNotification({
+  userId,
+  title,
+  message,
+  type = "info",
+}) {
+  if (!userId) return;
+
+  try {
+    notificationController.createNotification(
+      {
+        body: {
+          userId,
+          title,
+          message,
+          type,
+        },
+      },
+      {
+        status: () => ({
+          json: () => {},
+        }),
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Order notification error:",
+      error
+    );
   }
 }
 
-function writeOrders(orders) {
-  fs.writeFileSync(
-    filePath,
-    JSON.stringify(orders, null, 2)
-  );
-}
-
+// =====================================================
 // GET /api/orders
+// =====================================================
+
 exports.getOrders = (req, res) => {
   try {
     let orders = readOrders();
@@ -31,29 +84,36 @@ exports.getOrders = (req, res) => {
 
     if (buyerId) {
       orders = orders.filter(
-        (order) => order.buyerId === buyerId
+        (order) =>
+          String(order.buyerId) === String(buyerId)
       );
     }
 
     if (farmerId) {
       orders = orders.filter(
-        (order) => order.farmerId === farmerId
+        (order) =>
+          String(order.farmerId) === String(farmerId)
       );
     }
 
-    res.json({
+    return res.json({
       success: true,
       orders,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Get orders error:", error);
+
+    return res.status(500).json({
       success: false,
       message: "Unable to load orders",
     });
   }
 };
 
+// =====================================================
 // POST /api/orders
+// =====================================================
+
 exports.createOrder = (req, res) => {
   try {
     const {
@@ -67,84 +127,146 @@ exports.createOrder = (req, res) => {
       location,
       deliveryDate,
       notes,
-    } = req.body;
+    } = req.body || {};
 
-   if (
-  !buyerId ||
-  !cropName ||
-  !quantity ||
-  !price ||
-  !Number.isFinite(Number(quantity)) ||
-  Number(quantity) <= 0 ||
-  !Number.isFinite(Number(price)) ||
-  Number(price) <= 0
-) {
+    const numericQuantity = Number(quantity);
+    const numericPrice = Number(price);
+
+    // -----------------------------
+    // VALIDATION
+    // -----------------------------
+
+    if (!buyerId) {
       return res.status(400).json({
         success: false,
-        message:
-          "Buyer, crop, quantity and price are required",
+        message: "Buyer is required",
       });
     }
+
+    if (!cropName || !String(cropName).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Crop name is required",
+      });
+    }
+
+    if (
+      !Number.isFinite(numericQuantity) ||
+      numericQuantity <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid quantity",
+      });
+    }
+
+    if (
+      !Number.isFinite(numericPrice) ||
+      numericPrice <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid price",
+      });
+    }
+
+    // -----------------------------
+    // CREATE ORDER IN MEMORY
+    // -----------------------------
 
     const orders = readOrders();
 
     const order = {
       id: `ORD-${Date.now()}`,
-      buyerId,
+
+      buyerId: String(buyerId),
       buyerName: buyerName || "",
-      farmerId: farmerId || "",
+
+      farmerId: farmerId
+        ? String(farmerId)
+        : "",
+
       farmerName: farmerName || "",
-      cropName,
-      quantity: Number(quantity),
-      price: Number(price),
+
+      cropName: String(cropName).trim(),
+
+      quantity: numericQuantity,
+      price: numericPrice,
+
       totalAmount:
-        Number(quantity) * Number(price),
+        numericQuantity * numericPrice,
+
       location: location || "",
       deliveryDate: deliveryDate || "",
       notes: notes || "",
+
       status: "pending",
-      createdAt: new Date().toISOString(),
+
+      createdAt:
+        new Date().toISOString(),
     };
 
-   orders.unshift(order);
+    // Add to runtime memory
+    orders.unshift(order);
 
-writeOrders(orders);
+    // IMPORTANT:
+    // DO NOT call fs.writeFileSync here.
+    // Vercel filesystem is read-only.
 
-// Notify buyer
-notificationController.createNotification(
-  {
-    body: {
+    // -----------------------------
+    // NOTIFY BUYER
+    // -----------------------------
+
+    sendNotification({
       userId: buyerId,
       title: "Order Placed",
-      message: `Your order for ${cropName} has been placed successfully.`,
+      message: `Your order for ${order.cropName} has been placed successfully.`,
       type: "success",
-    },
-  },
-  {
-    status: () => ({ json: () => {} }),
-  }
-);
+    });
 
-    res.status(201).json({
+    // -----------------------------
+    // NOTIFY FARMER
+    // -----------------------------
+
+    if (farmerId) {
+      sendNotification({
+        userId: farmerId,
+        title: "New Order Received",
+        message: `A new order for ${order.cropName} has been received.`,
+        type: "info",
+      });
+    }
+
+    return res.status(201).json({
       success: true,
       message: "Order created successfully",
       order,
     });
   } catch (error) {
-    console.error("Create order error:", error);
+    console.error(
+      "Create order error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Unable to create order",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : undefined,
     });
   }
 };
 
+// =====================================================
 // PATCH /api/orders/:id/status
+// =====================================================
+
 exports.updateOrderStatus = (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
 
     const allowedStatuses = [
       "pending",
@@ -165,7 +287,8 @@ exports.updateOrderStatus = (req, res) => {
     const orders = readOrders();
 
     const index = orders.findIndex(
-      (order) => order.id === id
+      (order) =>
+        String(order.id) === String(id)
     );
 
     if (index === -1) {
@@ -175,72 +298,111 @@ exports.updateOrderStatus = (req, res) => {
       });
     }
 
-    orders[index].status = status;
-    orders[index].updatedAt =
-      new Date().toISOString();
+    orders[index] = {
+      ...orders[index],
 
-    writeOrders(orders);
-    // Notify farmer about order status
-if (orders[index].farmerId) {
-  notificationController.createNotification(
-    {
-      body: {
-        userId: orders[index].farmerId,
+      status,
+
+      updatedAt:
+        new Date().toISOString(),
+    };
+
+    const updatedOrder = orders[index];
+
+    // -----------------------------
+    // NOTIFY FARMER
+    // -----------------------------
+
+    if (updatedOrder.farmerId) {
+      sendNotification({
+        userId: updatedOrder.farmerId,
+
         title: "Order Status Updated",
-        message: `Your ${orders[index].cropName} order is now ${status}.`,
-        type: status === "confirmed" ? "success" : "info",
-      },
-    },
-    {
-      status: () => ({ json: () => {} }),
-    }
-  );
-}
 
-    res.json({
+        message: `Your ${updatedOrder.cropName} order is now ${status}.`,
+
+        type:
+          status === "confirmed"
+            ? "success"
+            : "info",
+      });
+    }
+
+    // -----------------------------
+    // NOTIFY BUYER
+    // -----------------------------
+
+    if (updatedOrder.buyerId) {
+      sendNotification({
+        userId: updatedOrder.buyerId,
+
+        title: "Order Status Updated",
+
+        message: `Your ${updatedOrder.cropName} order is now ${status}.`,
+
+        type:
+          status === "completed"
+            ? "success"
+            : "info",
+      });
+    }
+
+    return res.json({
       success: true,
       message: "Order status updated",
-      order: orders[index],
+      order: updatedOrder,
     });
-
   } catch (error) {
-    console.error("Update order error:", error);
+    console.error(
+      "Update order error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Unable to update order",
     });
   }
 };
 
+// =====================================================
 // DELETE /api/orders/:id
+// =====================================================
+
 exports.deleteOrder = (req, res) => {
   try {
     const { id } = req.params;
 
     const orders = readOrders();
 
-    const filtered = orders.filter(
-      (order) => order.id !== id
+    const index = orders.findIndex(
+      (order) =>
+        String(order.id) === String(id)
     );
 
-    if (filtered.length === orders.length) {
+    if (index === -1) {
       return res.status(404).json({
         success: false,
         message: "Order not found",
       });
     }
 
-    writeOrders(filtered);
+    orders.splice(index, 1);
 
-    res.json({
+    // IMPORTANT:
+    // No fs.writeFileSync here.
+
+    return res.json({
       success: true,
       message: "Order deleted successfully",
     });
   } catch (error) {
-    console.error("Delete order error:", error);
+    console.error(
+      "Delete order error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Unable to delete order",
     });

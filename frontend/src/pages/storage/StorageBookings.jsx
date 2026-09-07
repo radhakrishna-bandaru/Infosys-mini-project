@@ -42,53 +42,77 @@ async function loadBookings() {
   try {
     setLoading(true);
 
+    const currentStorageId = String(storageId);
+
     let apiBookings = [];
 
+    // 1. Load backend bookings
     try {
       const response = await getBookings({
-        storageId,
+        storageId: currentStorageId,
       });
 
-      apiBookings = response.bookings || [];
+      apiBookings = Array.isArray(response?.bookings)
+        ? response.bookings
+        : [];
     } catch (error) {
-      console.error(
-        "API booking loading error:",
-        error
-      );
+      console.error("API booking loading error:", error);
     }
 
+    // 2. Load browser-persistent bookings
     let localBookings = [];
 
     try {
-      localBookings = JSON.parse(
-        localStorage.getItem(
-          "smartFarmerLocalBookings"
-        ) || "[]"
+      const stored = localStorage.getItem(
+        "smartFarmerLocalBookings"
       );
-    } catch {
+
+      localBookings = stored ? JSON.parse(stored) : [];
+
+      if (!Array.isArray(localBookings)) {
+        localBookings = [];
+      }
+    } catch (error) {
+      console.error("Local booking loading error:", error);
       localBookings = [];
     }
 
-    const merged = [
+    // 3. Match storage ID robustly
+    const matchingLocalBookings = localBookings.filter(
+      (booking) => {
+        const bookingStorageId = String(
+          booking.storageId ||
+          booking.storage?._id ||
+          booking.storage?.id ||
+          ""
+        );
+
+        return (
+          bookingStorageId === currentStorageId ||
+          bookingStorageId === ""
+        );
+      }
+    );
+
+    // 4. Merge API + local bookings
+    const mergedBookings = [
       ...apiBookings,
-      ...localBookings.filter(
-        (local) =>
-          String(local.storageId) ===
-            String(storageId) &&
+      ...matchingLocalBookings.filter(
+        (localBooking) =>
           !apiBookings.some(
-            (api) =>
-              String(api.id) ===
-              String(local.id)
+            (apiBooking) =>
+              String(apiBooking.id) ===
+              String(localBooking.id)
           )
       ),
     ];
 
-    setBookings(merged);
+    // 5. Show bookings
+    setBookings(mergedBookings);
+
   } catch (error) {
-    console.error(
-      "Booking loading error:",
-      error
-    );
+    console.error("Booking loading error:", error);
+    setBookings([]);
   } finally {
     setLoading(false);
   }
@@ -100,38 +124,80 @@ async function loadBookings() {
 
   // ==================== STATUS UPDATE ====================
 
-  async function changeStatus(id, status) {
+async function changeStatus(id, status) {
+  try {
+    setUpdatingId(id);
+
     try {
-      setUpdatingId(id);
-
       await updateBookingStatus(id, status);
-
-      await loadBookings();
-
-      if (selectedBooking?.id === id) {
-        setSelectedBooking((previous) =>
-          previous
-            ? {
-                ...previous,
-                status,
-              }
-            : null
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Booking status error:",
-        error
+    } catch (apiError) {
+      console.warn(
+        "API status update failed, updating locally:",
+        apiError
       );
-
-      alert(
-        error.message ||
-          "Failed to update booking"
-      );
-    } finally {
-      setUpdatingId(null);
     }
+
+    // Update UI
+    setBookings((previous) =>
+      previous.map((booking) =>
+        String(booking.id) === String(id)
+          ? {
+              ...booking,
+              status,
+              updatedAt: new Date().toISOString(),
+            }
+          : booking
+      )
+    );
+
+    // Update localStorage
+    try {
+      const localBookings = JSON.parse(
+        localStorage.getItem(
+          "smartFarmerLocalBookings"
+        ) || "[]"
+      );
+
+      const updatedBookings = localBookings.map(
+        (booking) =>
+          String(booking.id) === String(id)
+            ? {
+                ...booking,
+                status,
+                updatedAt: new Date().toISOString(),
+              }
+            : booking
+      );
+
+      localStorage.setItem(
+        "smartFarmerLocalBookings",
+        JSON.stringify(updatedBookings)
+      );
+    } catch (localError) {
+      console.error(
+        "Local booking status update error:",
+        localError
+      );
+    }
+
+    setSelectedBooking((previous) =>
+      previous &&
+      String(previous.id) === String(id)
+        ? { ...previous, status }
+        : previous
+    );
+
+  } catch (error) {
+    console.error("Booking status error:", error);
+
+    alert(
+      error.message ||
+        "Failed to update booking"
+    );
+  } finally {
+    setUpdatingId(null);
   }
+}
 
   async function handleDecline(id) {
     const confirmed = window.confirm(

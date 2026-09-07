@@ -417,41 +417,221 @@ export async function updateBookingStatus(id, status) {
 
 // ==================== REQUIREMENTS ====================
 
+const LOCAL_REQUIREMENTS_KEY =
+  "smartFarmerLocalRequirements";
+
+function getLocalRequirements() {
+  try {
+    const data = JSON.parse(
+      localStorage.getItem(LOCAL_REQUIREMENTS_KEY) || "[]"
+    );
+
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalRequirements(requirements) {
+  localStorage.setItem(
+    LOCAL_REQUIREMENTS_KEY,
+    JSON.stringify(requirements)
+  );
+}
+
 export async function getRequirements(buyerId) {
   const query = buyerId
     ? `?buyerId=${encodeURIComponent(buyerId)}`
     : "";
 
-  return request(
-    `/requirements${query}`
-  );
+  try {
+    const response = await request(
+      `/requirements${query}`
+    );
+
+    return response;
+  } catch (error) {
+    const localRequirements =
+      getLocalRequirements().filter(
+        (item) =>
+          !buyerId ||
+          String(item.buyerId) === String(buyerId)
+      );
+
+    return {
+      success: true,
+      requirements: localRequirements,
+      local: true,
+    };
+  }
 }
 
 export async function createRequirement(
   requirementData
 ) {
-  return request("/requirements", {
-    method: "POST",
-    body: JSON.stringify(requirementData),
-  });
+  try {
+    const response = await request(
+      "/requirements",
+      {
+        method: "POST",
+        body: JSON.stringify(requirementData),
+      }
+    );
+
+    if (response.success && response.requirement) {
+      const requirements =
+        getLocalRequirements();
+
+      const exists = requirements.some(
+        (item) =>
+          String(item.id) ===
+          String(response.requirement.id)
+      );
+
+      if (!exists) {
+        requirements.push(response.requirement);
+        saveLocalRequirements(requirements);
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.warn(
+      "Requirement API failed, saving locally:",
+      error
+    );
+
+    const requirement = {
+      id: `LOCAL-REQ-${Date.now()}`,
+      ...requirementData,
+      quantity: Number(
+        requirementData.quantity || 0
+      ),
+      targetPrice: Number(
+        requirementData.targetPrice || 0
+      ),
+      status: "active",
+      createdAt:
+        new Date().toISOString(),
+    };
+
+    const requirements =
+      getLocalRequirements();
+
+    requirements.push(requirement);
+
+    saveLocalRequirements(requirements);
+
+    return {
+      success: true,
+      message:
+        "Requirement created successfully",
+      requirement,
+      local: true,
+    };
+  }
 }
 
 export async function updateRequirement(
   id,
   requirementData
 ) {
-  return request(`/requirements/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(requirementData),
-  });
+  try {
+    const response = await request(
+      `/requirements/${id}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(requirementData),
+      }
+    );
+
+    const requirements =
+      getLocalRequirements();
+
+    const updated =
+      requirements.map((item) =>
+        String(item.id) === String(id)
+          ? {
+              ...item,
+              ...requirementData,
+              id: item.id,
+              updatedAt:
+                new Date().toISOString(),
+            }
+          : item
+      );
+
+    saveLocalRequirements(updated);
+
+    return response;
+  } catch (error) {
+    const requirements =
+      getLocalRequirements();
+
+    const updated =
+      requirements.map((item) =>
+        String(item.id) === String(id)
+          ? {
+              ...item,
+              ...requirementData,
+              id: item.id,
+              updatedAt:
+                new Date().toISOString(),
+            }
+          : item
+      );
+
+    saveLocalRequirements(updated);
+
+    return {
+      success: true,
+      message:
+        "Requirement updated locally",
+      requirement:
+        updated.find(
+          (item) =>
+            String(item.id) === String(id)
+        ),
+      local: true,
+    };
+  }
 }
 
 export async function deleteRequirement(id) {
-  return request(`/requirements/${id}`, {
-    method: "DELETE",
-  });
-}
+  try {
+    const response = await request(
+      `/requirements/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
 
+    const requirements =
+      getLocalRequirements().filter(
+        (item) =>
+          String(item.id) !== String(id)
+      );
+
+    saveLocalRequirements(requirements);
+
+    return response;
+  } catch (error) {
+    const requirements =
+      getLocalRequirements().filter(
+        (item) =>
+          String(item.id) !== String(id)
+      );
+
+    saveLocalRequirements(requirements);
+
+    return {
+      success: true,
+      message:
+        "Requirement deleted locally",
+      local: true,
+    };
+  }
+}
 // ==================== ORDERS ====================
 
 export async function getOrders(filters = {}) {

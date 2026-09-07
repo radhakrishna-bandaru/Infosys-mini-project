@@ -56,21 +56,98 @@ export default function Requirements() {
 
   // ==================== LOAD ====================
 
-  async function loadRequirements() {
+async function loadRequirements() {
+  try {
+    setLoading(true);
+    setError("");
+
+    const currentBuyerId =
+      buyer?.id ||
+      buyer?._id ||
+      "";
+
+    // 1. Backend data
+    let apiRequirements = [];
+
     try {
-      setLoading(true);
-      setError("");
+      const response =
+        await getRequirements(
+          currentBuyerId
+        );
 
-      const response = await getRequirements(buyerId);
-
-      setRequirements(response.requirements || []);
-    } catch (err) {
-      console.error("Requirements load error:", err);
-      setError(err.message || "Unable to load requirements.");
-    } finally {
-      setLoading(false);
+      apiRequirements =
+        Array.isArray(
+          response?.requirements
+        )
+          ? response.requirements
+          : [];
+    } catch (error) {
+      console.warn(
+        "API requirements unavailable:",
+        error
+      );
     }
+
+    // 2. Local data
+    let localRequirements = [];
+
+    try {
+      localRequirements =
+        JSON.parse(
+          localStorage.getItem(
+            "smartFarmerLocalRequirements"
+          ) || "[]"
+        );
+
+      if (
+        !Array.isArray(localRequirements)
+      ) {
+        localRequirements = [];
+      }
+    } catch {
+      localRequirements = [];
+    }
+
+    // 3. Only current buyer's requirements
+    const buyerLocalRequirements =
+      localRequirements.filter(
+        (item) =>
+          String(
+            item.buyerId || ""
+          ) === String(currentBuyerId)
+      );
+
+    // 4. Merge backend + local
+    const mergedRequirements = [
+      ...apiRequirements,
+
+      ...buyerLocalRequirements.filter(
+        (localItem) =>
+          !apiRequirements.some(
+            (apiItem) =>
+              String(apiItem.id) ===
+              String(localItem.id)
+          )
+      ),
+    ];
+
+    setRequirements(
+      mergedRequirements
+    );
+  } catch (err) {
+    console.error(
+      "Requirements load error:",
+      err
+    );
+
+    setError(
+      err.message ||
+        "Unable to load requirements."
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     loadRequirements();
